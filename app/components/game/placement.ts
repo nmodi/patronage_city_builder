@@ -13,6 +13,23 @@ import { CELL_SIZE, GRID_SIZE } from "~/game/constants";
 import { useGameStore, type GameState, type GridPos } from "~/stores/useGameStore";
 import { instantiateBuilding, overrideMaterials, type BuildingModel } from "./assetLibrary";
 
+const GROUND_PLANE = Plane.FromPositionAndNormal(Vector3.Zero(), Vector3.Up());
+
+export function pickGridCell(scene: Scene): GridPos | null {
+  if (!scene.activeCamera) return null;
+  const ray = scene.createPickingRay(scene.pointerX, scene.pointerY, null, scene.activeCamera);
+  const distance = ray.intersectsPlane(GROUND_PLANE);
+  if (distance === null) return null;
+
+  const hit = ray.origin.add(ray.direction.scale(distance));
+  const halfGrid = (GRID_SIZE * CELL_SIZE) / 2;
+  const gridX = Math.floor((hit.x + halfGrid) / CELL_SIZE);
+  const gridY = Math.floor((hit.z + halfGrid) / CELL_SIZE);
+
+  if (gridX < 0 || gridX >= GRID_SIZE || gridY < 0 || gridY >= GRID_SIZE) return null;
+  return { x: gridX, y: gridY };
+}
+
 export function createPlacementController(scene: Scene) {
   let ghostBox: Mesh | null = null;
   let ghostModel: BuildingModel | null = null;
@@ -34,8 +51,6 @@ export function createPlacementController(scene: Scene) {
   invalidMat.diffuseColor = Color3.FromHexString("#ff4d4d");
   invalidMat.emissiveColor = new Color3(0.3, 0.1, 0.1);
   invalidMat.alpha = 0.45;
-
-  const groundPlane = Plane.FromPositionAndNormal(Vector3.Zero(), Vector3.Up());
 
   function handleMouseDown(event: MouseEvent) {
     if (event.button !== 0) return;
@@ -107,19 +122,13 @@ export function createPlacementController(scene: Scene) {
     ghostModel?.root.setEnabled(visible);
   }
 
-  function getHoveredGridPosition(): GridPos | null {
-    if (!scene.activeCamera) return null;
-    const ray = scene.createPickingRay(scene.pointerX, scene.pointerY, null, scene.activeCamera);
-    const distance = ray.intersectsPlane(groundPlane);
-    if (distance === null) return null;
-
-    const hit = ray.origin.add(ray.direction.scale(distance));
-    const halfGrid = (GRID_SIZE * CELL_SIZE) / 2;
-    const gridX = Math.floor((hit.x + halfGrid) / CELL_SIZE);
-    const gridY = Math.floor((hit.z + halfGrid) / CELL_SIZE);
-
-    if (gridX < 0 || gridX >= GRID_SIZE || gridY < 0 || gridY >= GRID_SIZE) return null;
-    return { x: gridX, y: gridY };
+  // Hover tooltip source: track which placed building the pointer is over
+  // whenever we're not in placement mode. Roads are skipped as noise.
+  function updateHoveredTile(state: GameState) {
+    const cell = pickGridCell(scene);
+    const tile = cell ? state.map.tiles[`${cell.x},${cell.y}`] : undefined;
+    const key = tile && tile.type !== "road" ? `${tile.origin.x},${tile.origin.y}` : null;
+    if (state.hoveredTileKey !== key) state.setHoveredTile(key);
   }
 
   function buildRoadStretch(anchor: GridPos, hover: GridPos) {
@@ -228,12 +237,14 @@ export function createPlacementController(scene: Scene) {
     if (!selectedBuilding) {
       clearGhost();
       pendingClick = false;
+      updateHoveredTile(state);
       return;
     }
+    if (state.hoveredTileKey) state.setHoveredTile(null);
     const metadata = BUILDING_METADATA_BY_ID[selectedBuilding];
     if (!metadata) return;
 
-    const currentPosition = getHoveredGridPosition();
+    const currentPosition = pickGridCell(scene);
     if (!currentPosition) {
       setGhostVisible(false);
       clearRoadPreview();

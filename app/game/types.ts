@@ -3,6 +3,7 @@ export type BuildingType =
   | "residential"
   | "artist"
   | "materials"
+  | "service"
   | "road"
   | "city"
   | "decoration";
@@ -28,6 +29,7 @@ export interface BuildingMetadata {
     inspiration?: number;
   };
   populationCapacity?: number;
+  serviceCapacity?: number; // raises the population growth ceiling while staffed
   isHub?: boolean;
   workersRequired?: number;
   maxWorkers?: number;

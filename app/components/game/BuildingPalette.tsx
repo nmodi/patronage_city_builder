@@ -1,4 +1,4 @@
-import { Hammer, Home, Landmark, Palette, Route, TreePine, type LucideIcon } from "lucide-react";
+import { Hammer, Home, Landmark, Palette, Route, TreePine, Wheat, type LucideIcon } from "lucide-react";
 
 import { BUILDING_METADATA_BY_TYPE, type BuildingId } from "~/game/buildings";
 import type { BuildingType } from "~/game/types";
@@ -9,6 +9,7 @@ const CATEGORIES: Array<{ type: BuildingType; label: string; icon: LucideIcon }>
   { type: "residential", label: "Housing", icon: Home },
   { type: "artist", label: "Ateliers", icon: Palette },
   { type: "materials", label: "Workshops", icon: Hammer },
+  { type: "service", label: "Services", icon: Wheat },
   { type: "city", label: "Civic", icon: Landmark },
   { type: "decoration", label: "Decorations", icon: TreePine },
   { type: "road", label: "Roads", icon: Route },

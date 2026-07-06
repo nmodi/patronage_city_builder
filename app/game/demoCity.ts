@@ -8,6 +8,8 @@ const LAYOUT: Array<[number, number, BuildingId]> = [
   [15, 9, "market"],
   [15, 7, "pigment_trader"],
   [15, 12, "workshop"],
+  [17, 9, "bakery"],
+  [17, 10, "tavern"],
   [6, 7, "cottage"],
   [7, 7, "cottage"],
   [6, 8, "cottage"],
@@ -34,4 +36,7 @@ export function seedDemoCity() {
     useGameStore.getState().placeTile({ x, y }, buildingId);
   }
   useGameStore.getState().setFlorins(florins);
+  // Fill the town and run one tick so buildings render staffed even under &pause.
+  useGameStore.getState().setPopulation(useGameStore.getState().getPopulationCapacity());
+  useGameStore.getState().tick();
 }

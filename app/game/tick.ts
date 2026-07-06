@@ -2,78 +2,78 @@ import type { StateCreator } from "zustand";
 
 import type { GameState } from "~/stores/useGameStore";
 import { BUILDING_METADATA_BY_ID } from "~/game/buildings";
-
+import { BASE_POPULATION_CAP } from "~/game/constants";
+import { allocateWorkers, type StaffableBuilding } from "~/game/workers";
 
 type StoreSet = Parameters<StateCreator<GameState>>[0];
 type StoreGet = Parameters<StateCreator<GameState>>[1];
 
-
 export const createTick = (set: StoreSet, get: StoreGet) =>
   () => {
     const state = get();
-    
-    const { florinDelta, inspirationDelta } = calculateResourceDeltas(state.map.tiles);
-    const updatedTiles = updateBuildings(state.map.tiles, state.getPopulationCapacity());
+    const tiles = state.map.tiles;
 
-    set((s) => ({
-      florins: florinDelta ? s.florins + florinDelta : s.florins,
-      inspiration: inspirationDelta ? s.inspiration + inspirationDelta : s.inspiration,
-      time: { tickCount: s.time.tickCount + 1 },
-      map: {
-        ...s.map,
-        tiles: updatedTiles,
-      },
-    }));
-  };
+    const staffables: StaffableBuilding[] = [];
+    for (const tile of Object.values(tiles)) {
+      if (!tile.isOrigin) continue;
+      const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
+      if (!metadata) continue;
+      staffables.push({
+        key: `${tile.position.x},${tile.position.y}`,
+        type: metadata.type,
+        workersRequired: metadata.workersRequired ?? 0,
+        maxWorkers: Math.max(metadata.workersRequired ?? 0, metadata.maxWorkers ?? 0),
+      });
+    }
+    const allocation = allocateWorkers(staffables, state.population);
 
-
-const updateBuildings = (tiles: GameState["map"]["tiles"], totalPopulation: number) => {
-  const updatedTiles: GameState["map"]["tiles"] = {};
-
-  for (const [key, tile] of Object.entries(tiles)) {
-    const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
-    updatedTiles[key] = tile;
-
-    // assign workers to buildings
-    if (!!metadata.workersRequired && metadata.workersRequired > 0) {
-      const availableWorkers = totalPopulation - Object.values(updatedTiles).reduce((acc, tile) => acc + (tile.workers || 0), 0);
-      const workersToAssign = Math.min(availableWorkers, metadata.workersRequired - (tile.workers || 0));
-
-      const isActive = tile.workers >= metadata.workersRequired;
-      updatedTiles[key] = {
-        ...tile, 
-        workers: (tile.workers || 0) + workersToAssign,
-        isActive: isActive 
-      };
-
-      // check if building is now active
-      if (tile.isActive && !updatedTiles[key]?.isActive) {
-        console.log(`Building ${tile.buildingId} has been activated.`);
+    let tilesChanged = false;
+    const updatedTiles: GameState["map"]["tiles"] = {};
+    for (const [key, tile] of Object.entries(tiles)) {
+      const required = BUILDING_METADATA_BY_ID[tile.buildingId]?.workersRequired ?? 0;
+      const workers = required > 0 ? allocation.get(`${tile.origin.x},${tile.origin.y}`) ?? 0 : 0;
+      const isActive = workers >= required;
+      if (tile.workers === workers && tile.isActive === isActive) {
+        updatedTiles[key] = tile; // keep identity so renderer/tooltip skip unchanged tiles
+      } else {
+        updatedTiles[key] = { ...tile, workers, isActive };
+        tilesChanged = true;
       }
-      console.log(`Tile ${key} (Building: ${tile.buildingId}) - Workers: ${tile.workers}, Active: ${isActive}`);
     }
 
-    // TODO we can then do another pass to update buildings past minimum workers
+    // Population drifts one per month toward min(housing, services). Staffed
+    // service buildings raise the ceiling past the unserviced base — the doc's
+    // "services unlock population thresholds", no supply chains.
+    let serviceCap = BASE_POPULATION_CAP;
+    for (const tile of Object.values(updatedTiles)) {
+      if (!tile.isOrigin || !tile.isActive) continue;
+      serviceCap += BUILDING_METADATA_BY_ID[tile.buildingId]?.serviceCapacity ?? 0;
+    }
+    const populationCap = Math.min(state.getPopulationCapacity(), serviceCap);
+    const population = state.population + Math.sign(populationCap - state.population);
 
-  }
+    // Staffing past the minimum boosts output linearly, up to +50% at maxWorkers.
+    let florinDelta = 0;
+    let inspirationDelta = 0;
+    for (const tile of Object.values(updatedTiles)) {
+      if (!tile.isOrigin || !tile.isActive) continue;
+      const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
+      if (!metadata?.generates) continue;
+      const required = metadata.workersRequired ?? 0;
+      const max = metadata.maxWorkers ?? 0;
+      const efficiency =
+        required > 0 && max > required
+          ? 1 + (0.5 * (tile.workers - required)) / (max - required)
+          : 1;
+      florinDelta += (metadata.generates.income ?? 0) * efficiency;
+      inspirationDelta += (metadata.generates.inspiration ?? 0) * efficiency;
+    }
 
-  return updatedTiles;
-}
-
-
-
-const calculateResourceDeltas = (tiles: GameState["map"]["tiles"]) => {
-  let florinDelta = 0;
-  let inspirationDelta = 0;
-
-  for (const tile of Object.values(tiles)) {
-    if (!tile.isOrigin || !tile.isActive) continue;
-    const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
-    const income = metadata?.generates?.income ?? 0;
-    const inspiration = metadata?.generates?.inspiration ?? 0;
-    florinDelta += income;
-    inspirationDelta += inspiration;
-  }
-
-  return { florinDelta, inspirationDelta };
-}
+    set((s) => ({
+      florins: s.florins + Math.round(florinDelta),
+      inspiration: s.inspiration + Math.round(inspirationDelta),
+      population,
+      time: { tickCount: s.time.tickCount + 1 },
+      map: tilesChanged ? { ...s.map, tiles: updatedTiles } : s.map,
+    }));
+  };

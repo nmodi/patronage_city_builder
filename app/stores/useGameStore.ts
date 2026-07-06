@@ -35,8 +35,12 @@ export interface TimeState {
 export type GameState = {
   florins: number;
   inspiration: number;
+  population: number;
   addFlorins: (amount: number) => void;
   setFlorins: (value: number) => void;
+  setPopulation: (value: number) => void;
+  hoveredTileKey: string | null;
+  setHoveredTile: (key: string | null) => void;
   tick: () => void;
   map: MapState;
   time: TimeState;
@@ -57,8 +61,12 @@ export type GameState = {
 const initializer: StateCreator<GameState> = (set, get) => ({
   florins: 500,
   inspiration: 0,
+  population: 0,
   addFlorins: (amount: number) => set((s) => ({ florins: s.florins + amount })),
   setFlorins: (value: number) => set(() => ({ florins: value })),
+  setPopulation: (value: number) => set(() => ({ population: value })),
+  hoveredTileKey: null,
+  setHoveredTile: (key) => set(() => ({ hoveredTileKey: key })),
 
   tick: createTick(set, get),
 
