@@ -28,8 +28,8 @@ export interface BuildingMetadata {
     income?: number;
     inspiration?: number;
   };
-  populationCapacity?: number;
-  serviceCapacity?: number; // raises the population growth ceiling while staffed
+  housing?: number;
+  amenities?: number; // raises the population growth ceiling while staffed
   isHub?: boolean;
   workersRequired?: number;
   maxWorkers?: number;

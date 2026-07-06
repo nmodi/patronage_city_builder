@@ -37,6 +37,6 @@ export function seedDemoCity() {
   }
   useGameStore.getState().setFlorins(florins);
   // Fill the town and run one tick so buildings render staffed even under &pause.
-  useGameStore.getState().setPopulation(useGameStore.getState().getPopulationCapacity());
+  useGameStore.getState().setPopulation(useGameStore.getState().getHousing());
   useGameStore.getState().tick();
 }

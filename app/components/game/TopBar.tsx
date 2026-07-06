@@ -15,7 +15,7 @@ export function TopBar() {
   const tickInterval = useGameStore((s) => s.tickInterval);
   const setTickInterval = useGameStore((s) => s.setTickInterval);
   const population = useGameStore((s) => s.population);
-  const populationCapacity = useGameStore((s) => s.getPopulationCapacity());
+  const housing = useGameStore((s) => s.getHousing());
 
   return (
     <div className="pointer-events-none fixed top-4 left-4 right-4 z-50 flex items-start justify-between gap-4">
@@ -52,7 +52,7 @@ export function TopBar() {
 
       <Panel className="flex items-center gap-6">
         <ResourceStat icon={Coins} label="Florins" value={`${florins}ƒ`} />
-        <ResourceStat icon={Users} label="Population" value={`${population}/${populationCapacity}`} />
+        <ResourceStat icon={Users} label="Population" value={`${population}/${housing}`} />
         <ResourceStat icon={Sparkles} label="Inspiration" value={inspiration} />
       </Panel>
 

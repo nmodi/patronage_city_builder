@@ -41,15 +41,15 @@ export const createTick = (set: StoreSet, get: StoreGet) =>
       }
     }
 
-    // Population drifts one per month toward min(housing, services). Staffed
+    // Population drifts one per month toward min(housing, amenities). Staffed
     // service buildings raise the ceiling past the unserviced base — the doc's
     // "services unlock population thresholds", no supply chains.
-    let serviceCap = BASE_POPULATION_CAP;
+    let amenities = BASE_POPULATION_CAP;
     for (const tile of Object.values(updatedTiles)) {
       if (!tile.isOrigin || !tile.isActive) continue;
-      serviceCap += BUILDING_METADATA_BY_ID[tile.buildingId]?.serviceCapacity ?? 0;
+      amenities += BUILDING_METADATA_BY_ID[tile.buildingId]?.amenities ?? 0;
     }
-    const populationCap = Math.min(state.getPopulationCapacity(), serviceCap);
+    const populationCap = Math.min(state.getHousing(), amenities);
     const population = state.population + Math.sign(populationCap - state.population);
 
     // Staffing past the minimum boosts output linearly, up to +50% at maxWorkers.

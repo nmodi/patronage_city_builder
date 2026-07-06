@@ -26,11 +26,11 @@ function getActiveEffects(metadata: BuildingMetadata, workers: number) {
   if (metadata.generates?.inspiration) {
     effects.push(`+${formatAmount(metadata.generates.inspiration * multiplier)} Inspiration / month`);
   }
-  if (metadata.serviceCapacity) {
-    effects.push(`+${metadata.serviceCapacity} service capacity`);
+  if (metadata.amenities) {
+    effects.push(`+${metadata.amenities} amenities`);
   }
-  if (metadata.populationCapacity) {
-    effects.push(`+${metadata.populationCapacity} population capacity`);
+  if (metadata.housing) {
+    effects.push(`+${metadata.housing} housing`);
   }
 
   return effects;

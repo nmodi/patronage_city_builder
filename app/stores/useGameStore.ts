@@ -54,7 +54,7 @@ export type GameState = {
   placeTiles: (positions: GridPos[], buildingId: BuildingId, rotation?: number) => boolean;
   removeTile: (position: GridPos) => void;
   getTileAt: (position: GridPos) => Tile | undefined;
-  getPopulationCapacity: () => number;
+  getHousing: () => number;
   getCalendarLabel: () => string;
 };
 
@@ -205,12 +205,12 @@ const initializer: StateCreator<GameState> = (set, get) => ({
     return state.map.tiles[`${position.x},${position.y}`];
   },
 
-  getPopulationCapacity: () => {
+  getHousing: () => {
     const state = get();
     return Object.values(state.map.tiles).reduce((total, tile) => {
       if (!tile.isOrigin) return total;
       const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
-      return total + (metadata?.populationCapacity ?? 0);
+      return total + (metadata?.housing ?? 0);
     }, 0);
   },
 
