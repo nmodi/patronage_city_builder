@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { StateCreator } from "zustand";
+import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 
 import type { Artist, BuildingType } from "~/game/types";
 import { BUILDING_METADATA_BY_ID, type BuildingId } from "~/game/buildings";
@@ -58,30 +59,31 @@ export type GameState = {
   getTileAt: (position: GridPos) => Tile | undefined;
   getHousing: () => number;
   getCalendarLabel: () => string;
+  resetGame: () => void;
 };
 
-const initializer: StateCreator<GameState> = (set, get) => ({
+const createInitialState = () => ({
   florins: 500,
   inspiration: 0,
   population: 0,
-  artists: [],
+  artists: [] as Artist[],
+  hoveredTileKey: null as string | null,
+  map: { tiles: {}, selectedBuilding: null } as MapState,
+  time: { tickCount: 0 },
+  paused: false,
+  tickInterval: BASE_TICK_INTERVAL,
+});
+
+const initializer: StateCreator<GameState> = (set, get) => ({
+  ...createInitialState(),
   addFlorins: (amount: number) => set((s) => ({ florins: s.florins + amount })),
   setFlorins: (value: number) => set(() => ({ florins: value })),
   setPopulation: (value: number) => set(() => ({ population: value })),
-  hoveredTileKey: null,
   setHoveredTile: (key) => set(() => ({ hoveredTileKey: key })),
 
   tick: createTick(set, get),
 
-  map: {
-    tiles: {},
-    selectedBuilding: null,
-  },
-  time: {
-    tickCount: 0,
-  },
-  paused: false,
-  tickInterval: BASE_TICK_INTERVAL,
+  resetGame: () => set(createInitialState()),
 
   togglePause: () =>
     set((s) => ({
@@ -231,4 +233,31 @@ const initializer: StateCreator<GameState> = (set, get) => ({
   }
 });
 
-export const useGameStore = create<GameState>(initializer);
+// ponytail: demo mode gets a black-hole storage so /?demo never reads or clobbers the real save
+const noopStorage: StateStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+};
+
+const isDemo = () =>
+  typeof window !== "undefined" && window.location.search.includes("demo");
+
+export const useGameStore = create<GameState>()(
+  persist(initializer, {
+    name: "patronage-save",
+    version: 1,
+    // SSR: hydrate manually from the game route's client effect
+    skipHydration: true,
+    storage: createJSONStorage(() => (isDemo() ? noopStorage : localStorage)),
+    partialize: (s) => ({
+      florins: s.florins,
+      inspiration: s.inspiration,
+      population: s.population,
+      artists: s.artists,
+      map: { tiles: s.map.tiles, selectedBuilding: null },
+      time: s.time,
+      tickInterval: s.tickInterval,
+    }),
+  }),
+);

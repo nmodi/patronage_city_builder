@@ -1,4 +1,5 @@
-import { Coins, Pause, Play, Sparkles, Users } from "lucide-react";
+import { useState } from "react";
+import { Coins, Pause, Play, RotateCcw, Settings, Sparkles, Users } from "lucide-react";
 
 import { useGameStore } from "~/stores/useGameStore";
 import { BASE_TICK_INTERVAL, GAME_SPEED_MULTIPLIERS } from "~/game/constants";
@@ -16,6 +17,8 @@ export function TopBar() {
   const setTickInterval = useGameStore((s) => s.setTickInterval);
   const population = useGameStore((s) => s.population);
   const housing = useGameStore((s) => s.getHousing());
+  const resetGame = useGameStore((s) => s.resetGame);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <div className="pointer-events-none fixed top-4 left-4 right-4 z-50 flex items-start justify-between gap-4">
@@ -56,15 +59,40 @@ export function TopBar() {
         <ResourceStat icon={Sparkles} label="Inspiration" value={inspiration} />
       </Panel>
 
-      <Panel className="flex items-center gap-2 text-xs text-stone-500">
-        <span>v0.1</span>
-        <button
-          className="rounded-full bg-emerald-700 px-3 py-1 font-semibold text-white transition hover:bg-emerald-600"
-          onClick={() => addFlorins(100)}
-        >
-          +100 Debug
-        </button>
-      </Panel>
+      <div className="relative flex flex-col items-end gap-2">
+        <Panel className="flex items-center gap-2 text-xs text-stone-500">
+          <span>v0.1</span>
+          <button
+            className="rounded-full bg-emerald-700 px-3 py-1 font-semibold text-white transition hover:bg-emerald-600"
+            onClick={() => addFlorins(100)}
+          >
+            +100 Debug
+          </button>
+          <button
+            className="rounded-full bg-stone-200 p-2 text-stone-600 transition hover:bg-stone-300"
+            onClick={() => setSettingsOpen((open) => !open)}
+            aria-label="Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+        </Panel>
+        {settingsOpen && (
+          <Panel header="Settings" className="flex w-48 flex-col gap-2 text-sm">
+            <button
+              className="flex items-center gap-2 rounded-lg bg-red-700 px-3 py-2 font-semibold text-white transition hover:bg-red-600"
+              onClick={() => {
+                if (window.confirm("Restart the game? All progress will be lost.")) {
+                  resetGame();
+                  setSettingsOpen(false);
+                }
+              }}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Restart Game
+            </button>
+          </Panel>
+        )}
+      </div>
     </div>
   );
 }

@@ -20,8 +20,10 @@ export default function GameWindow() {
   useGameShortcuts();
 
   useEffect(() => {
+    const demo = window.location.search.includes("demo");
+    if (!demo) useGameStore.persist.rehydrate();
     if (!import.meta.env.DEV) return;
-    if (window.location.search.includes("demo")) seedDemoCity();
+    if (demo) seedDemoCity();
     if (window.location.search.includes("pause")) useGameStore.getState().setPaused(true);
   }, []);
 
