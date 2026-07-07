@@ -408,16 +408,21 @@ The feeling to aim for: *you made it, and now you get to live in what you built.
 ### Phase 6 - Creating Artworks 
 - Artists can be tasks to create works 
 - Artists gain experience when works are complete and progress from apparentice -> journeyman -> master
+- creating an artwork creates prestige for the city 
 
 
-### Phase 6 — Material Suppliers & Scarcity
+### Phase 7 — Material Suppliers & Scarcity
 - Supplier buildings with capacity limits
+- Supply means the city has N of a certain resource 
+- resources do not get used up, they are just in-use while an artwork is in progress 
 - Artists are blocked when supplies are at capacity
+
 
 ### Phase 8 — Factions UI
 - Three faction relationship bars
 - Faction state in Zustand
 - Left panel UI component
+
 
 ### Phase 9 — Commissions
 - Commission data model
@@ -425,21 +430,22 @@ The feeling to aim for: *you made it, and now you get to live in what you built.
 - Progress tracking per tick
 - Completion triggers Masterwork creation + rewards
 
-### Phase 7 — Piazza & Inspiration Radius
+
+### Phase 10 — Piazza & Inspiration Radius
 - Piazza already generates Inspiration
 - placing works in the plaza increases inspiration output
 - Visible radius indicator when clicking plaza
 - buildings within the radius get increased performance due to the inspiration 
 
 
-### Phase 10 — Road System
+### Phase 11 — Road System
 - Cluster detection (proximity threshold)
 - Hub building identification
 - Grid-aligned path generation between clusters and hubs
 - Road mesh rendering
 - Dirty-flag recalculation on placement/removal
 
-### Phase 11 — Renaissance Victory & Soft Ending (post-MVP)
+### Phase 12 — Renaissance Victory & Soft Ending (post-MVP)
 - Track all trigger conditions (Masterwork count across art forms, faction tiers, Master-level artists per discipline, Inspiration threshold, landmark commission)
 - Detect when all conditions hold simultaneously
 - Fire festival event + celebration cinematic + title card

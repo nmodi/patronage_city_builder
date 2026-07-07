@@ -4,6 +4,7 @@ import type { GameState } from "~/stores/useGameStore";
 import { BUILDING_METADATA_BY_ID } from "~/game/buildings";
 import { BASE_POPULATION_CAP } from "~/game/constants";
 import { allocateWorkers, staffingEfficiency, type StaffableBuilding } from "~/game/workers";
+import { maybeArriveArtist, type AtelierSlot } from "~/game/artists";
 
 type StoreSet = Parameters<StateCreator<GameState>>[0];
 type StoreGet = Parameters<StateCreator<GameState>>[1];
@@ -68,10 +69,41 @@ export const createTick = (set: StoreSet, get: StoreGet) =>
       inspirationDelta += (metadata.generates.inspiration ?? 0) * efficiency;
     }
 
+    // Artists live in ateliers on top of the worker pool. Prune any whose home
+    // atelier is gone (covers demolition, one-tick lag — no removeTile change),
+    // then roll a passive monthly arrival into a cooled-down active atelier
+    // with a free slot.
+    const inspiration = state.inspiration + Math.round(inspirationDelta);
+    const isAtelier = (key: string) => {
+      const tile = updatedTiles[key];
+      return !!tile?.isOrigin && BUILDING_METADATA_BY_ID[tile.buildingId]?.artistCapacity != null;
+    };
+    let artists = state.artists.filter((a) => isAtelier(a.homeTileKey));
+    let artistsChanged = artists.length !== state.artists.length;
+
+    const ateliers: AtelierSlot[] = [];
+    for (const tile of Object.values(updatedTiles)) {
+      if (!tile.isOrigin) continue;
+      const capacity = BUILDING_METADATA_BY_ID[tile.buildingId]?.artistCapacity;
+      if (capacity == null) continue;
+      ateliers.push({
+        key: `${tile.position.x},${tile.position.y}`,
+        capacity,
+        isActive: tile.isActive,
+        builtTick: tile.builtTick ?? 0,
+      });
+    }
+    const arrival = maybeArriveArtist(ateliers, artists, inspiration, state.time.tickCount);
+    if (arrival) {
+      artists = [...artists, arrival];
+      artistsChanged = true;
+    }
+
     set((s) => ({
       florins: s.florins + Math.round(florinDelta),
       inspiration: s.inspiration + Math.round(inspirationDelta),
       population,
+      artists: artistsChanged ? artists : s.artists,
       time: { tickCount: s.time.tickCount + 1 },
       map: tilesChanged ? { ...s.map, tiles: updatedTiles } : s.map,
     }));

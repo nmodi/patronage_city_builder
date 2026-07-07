@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { StateCreator } from "zustand";
 
-import type { BuildingType } from "~/game/types";
+import type { Artist, BuildingType } from "~/game/types";
 import { BUILDING_METADATA_BY_ID, type BuildingId } from "~/game/buildings";
 import { createTick } from "~/game/tick";
 import { BASE_TICK_INTERVAL, GRID_SIZE } from "~/game/constants";
@@ -21,6 +21,7 @@ export interface Tile {
   variant?: number;   // For different building styles
   rotation?: number;  // Player-chosen quarter turns (0-3); undefined = seeded random
   workers: number;   // Number of workers assigned to this tile
+  builtTick: number; // Month when this building cell was placed
 }
 
 export interface MapState {
@@ -36,6 +37,7 @@ export type GameState = {
   florins: number;
   inspiration: number;
   population: number;
+  artists: Artist[];
   addFlorins: (amount: number) => void;
   setFlorins: (value: number) => void;
   setPopulation: (value: number) => void;
@@ -62,6 +64,7 @@ const initializer: StateCreator<GameState> = (set, get) => ({
   florins: 500,
   inspiration: 0,
   population: 0,
+  artists: [],
   addFlorins: (amount: number) => set((s) => ({ florins: s.florins + amount })),
   setFlorins: (value: number) => set(() => ({ florins: value })),
   setPopulation: (value: number) => set(() => ({ population: value })),
@@ -161,6 +164,7 @@ const initializer: StateCreator<GameState> = (set, get) => ({
               isActive: workersRequired === 0,
               rotation,
               workers: 0,
+              builtTick: s.time.tickCount,
             };
           }
         }

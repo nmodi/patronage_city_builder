@@ -34,13 +34,14 @@ export const BUILDING_TYPES = [
   {
     type: "artist",
     id: "workshop",
-    name: "Workshop",
+    name: "Atelier",
     baseCost: 100,
     size: { width: 1, height: 1, depth: 1 },
     color: "#c9a876",
     footprint: { width: 1, depth: 1 },
     workersRequired: 2,
     maxWorkers: 4,
+    artistCapacity: 2,
   },
   {
     type: "residential",
