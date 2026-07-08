@@ -11,6 +11,7 @@ import { Scene } from "@babylonjs/core/scene";
 
 import { useGameStore } from "~/stores/useGameStore";
 import { disposeAssetLibrary, preloadModels, scatterEnvironmentTrees } from "./assetLibrary";
+import { createCitizens } from "./citizens";
 import { createTileRenderer } from "./mapRenderer";
 import { createPlacementController } from "./placement";
 import { createTerrain } from "./terrain";
@@ -82,8 +83,10 @@ export function BabylonCanvas() {
 
     const tileRenderer = createTileRenderer(scene, shadowGenerator);
     const placementController = createPlacementController(scene);
+    const citizens = createCitizens(scene);
 
     tileRenderer.sync(useGameStore.getState().map.tiles);
+    citizens.sync(useGameStore.getState().map.tiles);
     let disposed = false;
     let treeScatter: { dispose: () => void } | null = null;
     preloadModels(scene)
@@ -95,7 +98,10 @@ export function BabylonCanvas() {
         treeScatter = scatterEnvironmentTrees(scene, terrain.heightAt, terrain.rand);
       });
     const unsubscribe = useGameStore.subscribe((state, prevState) => {
-      if (state.map.tiles !== prevState.map.tiles) tileRenderer.sync(state.map.tiles);
+      if (state.map.tiles !== prevState.map.tiles) {
+        tileRenderer.sync(state.map.tiles);
+        citizens.sync(state.map.tiles);
+      }
       if (state.map.selectedBuilding !== prevState.map.selectedBuilding) {
         // Only detach pointer drag (it fights placement); wheel zoom stays live.
         if (state.map.selectedBuilding) camera.inputs.attached.pointers.detachControl();
@@ -151,6 +157,7 @@ export function BabylonCanvas() {
       window.removeEventListener("resize", handleResize);
       unsubscribe();
       placementController.dispose();
+      citizens.dispose();
       tileRenderer.dispose();
       treeScatter?.dispose();
       disposeAssetLibrary();

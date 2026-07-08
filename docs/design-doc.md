@@ -285,7 +285,7 @@ Art direction: free CC0 packs — Kenney Fantasy Town Kit (buildings/props, kitb
 - **G2 — Terrain** *(done)*: flat-shaded ground, hills, tree scatter, fog horizon
 - **G3 — Ground dressing** *(done)*: kit path pieces for roads, composed plaza, grid hidden except while placing
 - **G4 — Life & polish** *(done)*: chimney smoke on active buildings, landmark label pins, rendering pipeline grade
-- **G5 — Stretch** *(open)*: river + bridge, decorative citizens (cosmetic only), boats, banners, obelisk model
+- **G5 — Stretch** *(open)*: river + bridge, decorative citizens *(built — `render/citizens.ts`, cosmetic meeples random-walking roads/plazas/markets)*, boats, banners, obelisk model
 
 Dev helpers: `/?demo` seeds a visual test city, `&pause` freezes the tick for stable screenshots.
 

@@ -36,6 +36,8 @@ type ModelDef = {
   pad?: number;
   /** Fraction of the footprint the composed bounding box fills. Default 0.9. */
   fit?: number;
+  /** Squash the whole composed model's height after footprint fitting (1 = as-fit). */
+  scaleY?: number;
   /** Scale x/z independently to fill both footprint axes (rectangular prefabs). */
   stretch?: boolean;
   /** "quarter" = random 90° steps, "free" = any angle. Seeded by grid position. */
@@ -66,6 +68,8 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "roof-gable.glb", position: [0, 1, 0], scale: ROOF_SCALE },
     ],
     fit: 0.75,
+    // 0.66 puts the ridge at ~2.4 person-heights (~13.7 ft vs a 5'8" person).
+    scaleY: 0.66,
     randomRotate: "quarter",
   },
   townhouse: {
@@ -75,7 +79,11 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "banner-red.glb", position: [0, 1, 0] },
       { file: TOWN + "roof-gable.glb", position: [0, 2, 0], scale: ROOF_SCALE },
     ],
-    fit: 0.65,
+    // Widened + squashed together: at fit 0.65 / full height the two-story
+    // stack read as a tower next to person-scale citizens.
+    fit: 0.72,
+    // ~22.4 ft: cottage story (13.7 ft) plus a ~9 ft second floor.
+    scaleY: 0.64,
     randomRotate: "quarter",
   },
   // Long workshop hall: two bays under a flat roof, chimney on the far bay (3x2 footprint).
@@ -88,6 +96,7 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "chimney.glb", position: [0.5, 0.55, 0] },
     ],
     fit: 0.85,
+    scaleY: 0.7, // ~12 ft roofline, chimney to ~16 ft
     stretch: true,
   },
   pigment_trader: {
@@ -97,6 +106,7 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "roof-point.glb", position: [0, 1, 0], scale: ROOF_SCALE },
     ],
     fit: 0.75,
+    scaleY: 0.8,
     randomRotate: "quarter",
   },
   // Marble yard: low flat-roofed cutting shed, rough blocks and a finished
@@ -122,6 +132,7 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "banner-red.glb", position: [0.5, 0.25, 0] },
     ],
     fit: 0.85,
+    scaleY: 0.85, // ~16 ft ridge — a public hall, half a notch above the cottage
     stretch: true,
   },
   bakery: {
@@ -131,6 +142,7 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "chimney.glb", position: [0, 0.55, 0] },
     ],
     fit: 0.75,
+    scaleY: 0.66, // ridge matches the cottage; chimney tips out at ~16 ft
     randomRotate: "quarter",
   },
   // Open market square: stalls sit small on a paved pad (the paving sets the
@@ -375,11 +387,12 @@ export function instantiateBuilding(
   const fit = def.fit ?? 0.9;
   const scaleX = (footprint.width * CELL_SIZE * fit) / extentX || 1;
   const scaleZ = (footprint.depth * CELL_SIZE * fit) / extentZ || 1;
+  const sy = def.scaleY ?? 1;
 
   if (def.stretch) {
     // Fill both footprint axes. Extents are world-space (post-rotation), but
     // scaling is local, so odd quarter turns swap which axis each scale drives.
-    const scaleY = Math.min(scaleX, scaleZ);
+    const scaleY = Math.min(scaleX, scaleZ) * sy;
     const odd = Math.round(root.rotation.y / (Math.PI / 2)) % 2 !== 0;
     root.scaling.set(odd ? scaleZ : scaleX, scaleY, odd ? scaleX : scaleZ);
     root.position.y = -min.y * scaleY;
@@ -391,10 +404,10 @@ export function instantiateBuilding(
     const [lo, hi] = def.randomScale;
     scale *= lo + (hash / 4096) * (hi - lo);
   }
-  root.scaling.setAll(scale);
-  root.position.y = -min.y * scale;
+  root.scaling.set(scale, scale * sy, scale);
+  root.position.y = -min.y * scale * sy;
 
-  return { root, meshes, height: (max.y - min.y) * scale };
+  return { root, meshes, height: (max.y - min.y) * scale * sy };
 }
 
 export function setBuildingActive(model: BuildingModel, active: boolean) {
