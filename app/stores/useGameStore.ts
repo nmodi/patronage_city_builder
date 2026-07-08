@@ -258,18 +258,16 @@ const initializer: StateCreator<GameState> = (set, get) => ({
     }, 0);
   },
 
-  getCalendarLabel: () => {
-    const state = get();
-    const monthNames = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    ];
-    const monthsElapsed = state.time.tickCount;
-    const monthIndex = monthsElapsed % 12;
-    const year = 1400 + Math.floor(monthsElapsed / 12);
-    return `${monthNames[monthIndex]} ${year}`;
-  }
+  getCalendarLabel: () => formatMonth(get().time.tickCount),
 });
+
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+];
+
+export const formatMonth = (tick: number) =>
+  `${MONTH_NAMES[tick % 12]} ${1400 + Math.floor(tick / 12)}`;
 
 // ponytail: demo mode gets a black-hole storage so /?demo never reads or clobbers the real save
 const noopStorage: StateStorage = {

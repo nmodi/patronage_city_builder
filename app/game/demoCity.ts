@@ -41,4 +41,14 @@ export function seedDemoCity() {
   // Fill the town and run one tick so buildings render staffed even under &pause.
   useGameStore.getState().setPopulation(useGameStore.getState().getHousing());
   useGameStore.getState().tick();
+  // Completed works so the gallery codex has content in demo mode.
+  const founder = useGameStore.getState().artists[0];
+  if (founder) {
+    useGameStore.setState({
+      artworks: [
+        { id: "demo-art-1", name: "Madonna of the Lilies", requester: "The Church", artistId: founder.id, artistType: founder.type, completedTick: 14 },
+        { id: "demo-art-2", name: "Portrait of Contessina de' Bardi", requester: "House Medici", artistId: founder.id, artistType: founder.type, completedTick: 43 },
+      ],
+    });
+  }
 }

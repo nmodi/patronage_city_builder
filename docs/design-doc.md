@@ -167,7 +167,7 @@ Multiple commissions run simultaneously; the right panel shows active ones with 
 
 **Building design test:** every building must either *unlock* something (a commission type, a population threshold, an artist technique) or *passively boost* something (inspiration, florins, prestige). No building requires active management.
 
-The full roster below is the long-term target, implemented incrementally. *(built)* marks what exists.
+The full roster below is the long-term target, implemented incrementally. *(built)* marks what exists. Effect design for the non-art buildings (which of five effect slots each fills, Palazzo dual-listing resolution) is detailed in the supplemental [building-effects.md](building-effects.md).
 
 ### Civic / Landmark
 - **Plaza** / **Town Center Plaza** *(built)* — generates Inspiration, displays Masterworks
@@ -263,7 +263,7 @@ Left panel: artist roster (replaces the faction bars from earlier drafts). Right
 - **8 Commissions** — DONE. System-generated offers (per-month chance, capped open offers, 12-month offer expiry; requesters are flavor strings that skew the florin/prestige mix); one-step assign-to-workshop UI in the right panel; progress per tick; completion mints the named artwork and pays out. Replaced the click-to-start artwork flow. Faction-driven offer generation is a later phase.
 
 ### Next
-- **9 — Masterwork display**: place completed works in the plaza; permanent inspiration boost. Additionally, create a menu to open a gallery for completed works to be viewed in a codex. 
+- **9 — Masterwork display**: place completed works in the plaza; permanent inspiration boost. Additionally, create a menu to open a gallery for completed works to be viewed in a codex. *Gallery codex DONE (`GalleryPanel.tsx` — icon button in the top bar, modal lists each work with a thumbnail (placeholder art for now), artist, requester, completion date); plaza display + inspiration boost still open.*
 - **10 — Soft spatial inspiration**: flat efficiency bonus for workshops near a plaza.
 - **11 — Light teaching**: master-in-workshop XP multiplier for co-housed apprentices.
 - **12 — Renaissance milestone**: prestige threshold → festival event + title card; play continues.

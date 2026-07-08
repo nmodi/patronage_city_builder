@@ -1,3 +1,5 @@
+import { Hammer, Palette, Sparkles, type LucideIcon } from "lucide-react";
+
 import { useGameStore } from "~/stores/useGameStore";
 import { RANK_LABEL } from "~/game/artists";
 import { BUILDING_METADATA_BY_ID } from "~/game/buildings";
@@ -5,6 +7,20 @@ import { blockedReason, getSupply, MATERIAL_BY_ARTIST_TYPE } from "~/game/materi
 import { Panel } from "./Panel";
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const ARTIST_ICONS: Record<string, LucideIcon> = {
+  painter: Palette,
+  sculptor: Hammer,
+};
+
+function ArtistThumb({ type }: { type?: string }) {
+  const Icon = (type && ARTIST_ICONS[type]) || Sparkles;
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-wood/50 bg-parchment-deep">
+      <Icon className="h-5 w-5 text-ink-faint" strokeWidth={1.75} />
+    </div>
+  );
+}
 
 export function ArtistsPanel() {
   const artists = useGameStore((s) => s.artists);
@@ -20,8 +36,16 @@ export function ArtistsPanel() {
   if (workshops.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed left-4 top-24 z-40 w-56">
-      <Panel header={`Workshops (${workshops.length})`} className="flex flex-col gap-2">
+    <div className="pointer-events-none fixed left-4 top-24 z-40 w-72">
+      <Panel
+        header={
+          <span className="flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-sienna" />
+            Artists &amp; Workshops ({workshops.length})
+          </span>
+        }
+        className="flex flex-col gap-2.5"
+      >
         {workshops.map((key) => {
           const members = artists.filter((a) => a.homeTileKey === key);
           const founder = members[0];
@@ -29,9 +53,12 @@ export function ArtistsPanel() {
           if (!founder) {
             // Pre-rework save: workshop without a crew; first arrival founds it.
             return (
-              <div key={key} className="flex flex-col leading-tight">
-                <span className="font-display text-sm font-semibold text-stone-800">Workshop</span>
-                <span className="text-[10px] text-stone-500">Vacant</span>
+              <div key={key} className="flex items-center gap-2.5">
+                <ArtistThumb />
+                <div className="flex flex-col leading-tight">
+                  <span className="font-display text-base font-semibold text-ink">Workshop</span>
+                  <span className="text-xs text-ink-faint">Vacant</span>
+                </div>
               </div>
             );
           }
@@ -41,31 +68,34 @@ export function ArtistsPanel() {
           const materialBlocked = working && founderSupply != null && !founderSupply.allowed.has(key);
           const atCapacity = founderSupply != null && founderSupply.inUse >= founderSupply.capacity;
           return (
-            <div key={key} className="flex flex-col leading-tight">
-              <span className="font-display text-sm font-semibold text-stone-800">
-                Bottega di {founder.name}
-              </span>
-              <span className="text-xs text-stone-500">
-                {RANK_LABEL[founder.rank]} {capitalize(founder.type)} · {members.length}{" "}
-                {members.length === 1 ? "artist" : "artists"}
-              </span>
-              {working ? (
-                <span className={`text-[10px] ${active ? "text-emerald-700" : "text-amber-700"}`}>
-                  At work on {commission!.title} — {Math.floor(founder.workProgress!)}/
-                  {commission!.durationMonths} months
-                  {materialBlocked
-                    ? ` (no ${MATERIAL_BY_ARTIST_TYPE[founder.type]})`
-                    : !active && " (paused)"}
+            <div key={key} className="flex items-start gap-2.5">
+              <ArtistThumb type={founder.type} />
+              <div className="flex flex-col leading-tight">
+                <span className="font-display text-base font-semibold text-ink">
+                  Bottega di {founder.name}
                 </span>
-              ) : !active ? (
-                <span className="text-[10px] text-amber-700">Workshop unstaffed</span>
-              ) : atCapacity ? (
-                <span className="text-[10px] text-amber-700">
-                  {blockedReason(founder.type, founderSupply)}
+                <span className="text-sm text-ink-faint">
+                  {RANK_LABEL[founder.rank]} {capitalize(founder.type)} · {members.length}{" "}
+                  {members.length === 1 ? "artist" : "artists"}
                 </span>
-              ) : (
-                <span className="text-[10px] text-stone-500">Awaiting a commission</span>
-              )}
+                {working ? (
+                  <span className={`text-xs ${active ? "text-prestige-gold" : "text-sienna"}`}>
+                    At work on {commission!.title} — {Math.floor(founder.workProgress!)}/
+                    {commission!.durationMonths} months
+                    {materialBlocked
+                      ? ` (no ${MATERIAL_BY_ARTIST_TYPE[founder.type]})`
+                      : !active && " (paused)"}
+                  </span>
+                ) : !active ? (
+                  <span className="text-xs text-sienna">Workshop unstaffed</span>
+                ) : atCapacity ? (
+                  <span className="text-xs text-sienna">
+                    {blockedReason(founder.type, founderSupply)}
+                  </span>
+                ) : (
+                  <span className="text-xs text-ink-faint">Awaiting a commission</span>
+                )}
+              </div>
             </div>
           );
         })}

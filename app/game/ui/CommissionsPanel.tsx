@@ -1,7 +1,21 @@
+import { Clock, Coins, Crown } from "lucide-react";
+
 import { useGameStore } from "~/stores/useGameStore";
 import { getSupply } from "~/game/materials";
 import { Panel } from "./Panel";
 import type { Commission } from "~/game/types";
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function CommissionThumb({ title }: { title: string }) {
+  return (
+    <img
+      src="/art-placeholder.svg"
+      alt={title}
+      className="h-14 w-10 shrink-0 rounded-sm border border-wood/50 object-cover shadow-sm shadow-black/20"
+    />
+  );
+}
 
 export function CommissionsPanel() {
   const commissions = useGameStore((s) => s.commissions);
@@ -36,23 +50,27 @@ export function CommissionsPanel() {
       .sort(([a], [b]) => a.localeCompare(b));
 
   return (
-    <div className="pointer-events-none fixed right-4 top-24 z-40 w-64">
+    <div className="pointer-events-none fixed right-4 top-24 z-40 w-80">
       <Panel header={`Commissions (${commissions.length})`} className="flex flex-col gap-3">
         {active.map((c) => {
           const founder = artists.find((a) => a.homeTileKey === c.workshopKey);
           const progress = Math.min(1, (founder?.workProgress ?? 0) / c.durationMonths);
           const remaining = Math.max(0, Math.ceil(c.durationMonths - (founder?.workProgress ?? 0)));
           return (
-            <div key={c.id} className="flex flex-col gap-1 leading-tight">
-              <span className="font-display text-sm font-semibold text-stone-800">{c.title}</span>
-              <span className="text-[10px] text-stone-500">
-                {c.requester} · {remaining} mo left
-              </span>
-              <div className="h-1.5 overflow-hidden rounded-full bg-stone-300/70">
-                <div
-                  className="h-full rounded-full bg-emerald-600"
-                  style={{ width: `${Math.round(progress * 100)}%` }}
-                />
+            <div key={c.id} className="flex items-start gap-2.5">
+              <CommissionThumb title={c.title} />
+              <div className="flex min-w-0 flex-1 flex-col gap-1 leading-tight">
+                <span className="font-display text-base font-semibold text-ink">{c.title}</span>
+                <span className="flex items-center gap-1 text-sm text-ink-faint">
+                  {c.requester} ·
+                  <Clock className="h-4 w-4" /> {remaining} mo left
+                </span>
+                <div className="h-1.5 overflow-hidden rounded-full bg-parchment-deep">
+                  <div
+                    className="h-full rounded-full bg-sienna"
+                    style={{ width: `${Math.round(progress * 100)}%` }}
+                  />
+                </div>
               </div>
             </div>
           );
@@ -61,27 +79,36 @@ export function CommissionsPanel() {
           const workshops = eligibleWorkshops(c);
           const monthsLeft = c.expiresTick - tickCount;
           return (
-            <div key={c.id} className="flex flex-col gap-1 leading-tight">
-              <span className="font-display text-sm font-semibold text-stone-800">{c.title}</span>
-              <span className="text-[10px] text-stone-500">
-                {c.requester} · {c.florins} fl · {c.prestige} prestige · {c.durationMonths} mo
-                {monthsLeft < 4 && (
-                  <span className="text-amber-700"> · expires in {monthsLeft} mo</span>
+            <div key={c.id} className="flex items-start gap-2.5">
+              <CommissionThumb title={c.title} />
+              <div className="flex min-w-0 flex-1 flex-col gap-1 leading-tight">
+                <span className="font-display text-base font-semibold text-ink">{c.title}</span>
+                <span className="flex flex-wrap items-center gap-1 text-sm text-ink-faint">
+                  {c.requester} ·
+                  <Coins className="h-4 w-4 text-prestige-gold" /> {c.florins}ƒ ·
+                  <Crown className="h-4 w-4 text-prestige-gold" /> {c.prestige} ·
+                  <Clock className="h-4 w-4" /> {c.durationMonths} mo
+                </span>
+                <span className="text-sm font-semibold text-sienna">
+                  Requires: {capitalize(c.artistType)}
+                  {monthsLeft < 4 && <span> · expires in {monthsLeft} mo</span>}
+                </span>
+                {workshops.length > 0 ? (
+                  workshops.map(([key, founder]) => (
+                    <button
+                      key={key}
+                      className="rounded bg-sienna px-2 py-1.5 text-sm font-semibold text-parchment transition hover:bg-sienna/85"
+                      onClick={() => assignCommission(c.id, key)}
+                    >
+                      Assign to Bottega di {founder.name}
+                    </button>
+                  ))
+                ) : (
+                  <span className="rounded border border-wood/50 bg-parchment-deep px-2 py-1.5 text-center text-sm text-ink-faint shadow-inner">
+                    Not assigned — no idle {c.artistType} workshop
+                  </span>
                 )}
-              </span>
-              {workshops.length > 0 ? (
-                workshops.map(([key, founder]) => (
-                  <button
-                    key={key}
-                    className="self-start rounded-full bg-emerald-700 px-2 py-1 text-[10px] font-semibold text-white transition hover:bg-emerald-600"
-                    onClick={() => assignCommission(c.id, key)}
-                  >
-                    Assign — Bottega di {founder.name}
-                  </button>
-                ))
-              ) : (
-                <span className="text-[10px] text-amber-700">No idle {c.artistType} workshop</span>
-              )}
+              </div>
             </div>
           );
         })}

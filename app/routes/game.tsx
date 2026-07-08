@@ -10,8 +10,8 @@ import { useGameStore } from "~/stores/useGameStore";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "RenCity Builder" },
-    { name: "description", content: "3D City Building Game" },
+    { title: "Patronage" },
+    { name: "description", content: "Renaissance Era City Builder" },
   ];
 };
 

@@ -1,12 +1,30 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
+  --font-sans: "EB Garamond", Georgia, "Times New Roman", serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-display: "Cinzel", "Inter", serif;
+  --font-display: "Cinzel", "EB Garamond", serif;
 
   --color-prestige-gold: #c9932f;
   --color-crest-blue: #2f3d63;
+
+  --color-parchment: #f7eed9;
+  --color-parchment-deep: #eee1c4;
+  --color-ink: #453824;
+  --color-ink-faint: #8a7658;
+  --color-wood: #b39868;
+  --color-sienna: #9c3a24;
+}
+
+/* Parchment card: double border via inset hairline, faint paper grain via inline noise SVG. */
+.panel-parchment {
+  background-color: var(--color-parchment);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  border: 1px solid var(--color-wood);
+  box-shadow:
+    inset 0 0 0 3px var(--color-parchment),
+    inset 0 0 0 4px color-mix(in srgb, var(--color-wood) 55%, transparent),
+    0 4px 12px rgba(40, 25, 10, 0.35);
 }
 
 html,

@@ -87,22 +87,22 @@ export function BuildingTooltip() {
       className="pointer-events-none fixed left-0 top-0 z-50"
       style={{ transform: `translate(${mouse.current.x + 14}px, ${mouse.current.y + 14}px)` }}
     >
-      <div className="max-w-56 rounded-md bg-stone-900/90 px-3 py-2 text-stone-100 shadow-lg">
-        <div className="text-xs font-semibold">{metadata.name}</div>
+      <div className="panel-parchment max-w-64 rounded-md px-3.5 py-2.5 text-ink">
+        <div className="font-display text-base font-semibold">{metadata.name}</div>
         {required > 0 && (
-          <div className="text-[10px] text-stone-300">
+          <div className="text-sm text-ink-faint">
             Workers {tile.workers}/{required}
             {(metadata.maxWorkers ?? 0) > required ? ` (max ${metadata.maxWorkers})` : ""}
           </div>
         )}
         {metadata.supplies && material && materialStatus && (
-          <div className="text-[10px] text-stone-300">
+          <div className="text-sm text-ink-faint">
             {material.charAt(0).toUpperCase() + material.slice(1)}: {materialStatus.inUse}/
             {materialStatus.capacity} {metadata.supplies.artistType}s
           </div>
         )}
         {canBeInactive && (
-          <div className={`text-[10px] ${isActive ? "text-emerald-400" : "text-amber-400"}`}>
+          <div className={`text-sm font-semibold ${isActive ? "text-prestige-gold" : "text-sienna"}`}>
             {isActive
               ? "Active"
               : missing > 0
@@ -111,9 +111,9 @@ export function BuildingTooltip() {
           </div>
         )}
         {activeEffects.length > 0 && (
-          <div className="mt-1 space-y-0.5 border-t border-stone-700 pt-1">
+          <div className="mt-1 space-y-0.5 border-t border-wood/50 pt-1">
             {activeEffects.map((effect) => (
-              <div key={effect} className="text-[10px] text-stone-200">
+              <div key={effect} className="text-sm text-ink">
                 {effect}
               </div>
             ))}

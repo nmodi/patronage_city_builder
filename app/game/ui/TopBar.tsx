@@ -3,6 +3,7 @@ import { Coins, Crown, Pause, Play, RotateCcw, Settings, Sparkles, Users } from 
 
 import { useGameStore } from "~/stores/useGameStore";
 import { BASE_TICK_INTERVAL, GAME_SPEED_MULTIPLIERS } from "~/game/constants";
+import { GalleryPanel } from "./GalleryPanel";
 import { Panel } from "./Panel";
 import { ResourceStat } from "./ResourceStat";
 
@@ -24,13 +25,16 @@ export function TopBar() {
   return (
     <div className="pointer-events-none fixed top-4 left-4 right-4 z-50 flex items-start justify-between gap-4">
       <Panel className="flex items-center gap-4">
-        <div className="flex flex-col leading-tight">
-          <span className="text-[10px] uppercase tracking-wide text-stone-500">Date</span>
-          <span className="font-display text-lg font-semibold text-stone-800">{calendarLabel}</span>
+        {/* Fixed width so variable-width month names don't resize the card. */}
+        <div className="flex w-24 flex-col leading-tight">
+          <span className="text-[10px] uppercase tracking-wide text-ink-faint">Date</span>
+          <span className="whitespace-nowrap font-display text-lg font-semibold text-ink">
+            {calendarLabel}
+          </span>
         </div>
-        <div className="flex items-center gap-1 border-l border-stone-300/60 pl-3">
+        <div className="flex items-center gap-1 border-l border-wood/50 pl-3">
           <button
-            className="rounded-full bg-stone-800 p-2 text-stone-50 transition hover:bg-stone-700"
+            className="rounded-full bg-ink p-2 text-parchment transition hover:bg-ink/80"
             onClick={togglePause}
             aria-label={paused ? "Resume" : "Pause"}
           >
@@ -43,7 +47,7 @@ export function TopBar() {
               <button
                 key={multiplier}
                 className={`rounded-full px-2 py-1 text-xs font-semibold transition ${
-                  isActive ? "bg-amber-600 text-white" : "bg-stone-200 text-stone-600 hover:bg-stone-300"
+                  isActive ? "bg-sienna text-parchment" : "bg-parchment-deep text-ink-faint hover:text-ink"
                 }`}
                 onClick={() => setTickInterval(BASE_TICK_INTERVAL / multiplier)}
               >
@@ -55,23 +59,24 @@ export function TopBar() {
       </Panel>
 
       <Panel className="flex items-center gap-6">
-        <ResourceStat icon={Coins} label="Florins" value={`${florins}ƒ`} />
-        <ResourceStat icon={Users} label="Population" value={`${population}/${housing}`} />
-        <ResourceStat icon={Sparkles} label="Inspiration" value={inspiration} />
-        <ResourceStat icon={Crown} label="Prestige" value={prestige} />
+        <ResourceStat icon={Coins} label="Florins" value={`${florins}ƒ`} iconClassName="text-prestige-gold" />
+        <ResourceStat icon={Users} label="Population" value={`${population}/${housing}`} iconClassName="text-sienna" />
+        <ResourceStat icon={Sparkles} label="Inspiration" value={inspiration} iconClassName="text-prestige-gold" />
+        <ResourceStat icon={Crown} label="Prestige" value={prestige} iconClassName="text-sienna" />
       </Panel>
 
       <div className="relative flex flex-col items-end gap-2">
-        <Panel className="flex items-center gap-2 text-xs text-stone-500">
+        <Panel className="flex items-center gap-2 text-xs text-ink-faint">
           <span>v0.1</span>
           <button
-            className="rounded-full bg-emerald-700 px-3 py-1 font-semibold text-white transition hover:bg-emerald-600"
+            className="rounded-full px-2 py-1 font-semibold text-ink-faint transition hover:text-ink"
             onClick={() => addFlorins(100)}
           >
-            +100 Debug
+            +100ƒ
           </button>
+          <GalleryPanel />
           <button
-            className="rounded-full bg-stone-200 p-2 text-stone-600 transition hover:bg-stone-300"
+            className="rounded-full bg-parchment-deep p-2 text-ink transition hover:bg-wood/40"
             onClick={() => setSettingsOpen((open) => !open)}
             aria-label="Settings"
           >
@@ -81,7 +86,7 @@ export function TopBar() {
         {settingsOpen && (
           <Panel header="Settings" className="flex w-48 flex-col gap-2 text-sm">
             <button
-              className="flex items-center gap-2 rounded-lg bg-red-700 px-3 py-2 font-semibold text-white transition hover:bg-red-600"
+              className="flex items-center gap-2 rounded-lg bg-sienna px-3 py-2 font-semibold text-parchment transition hover:bg-sienna/85"
               onClick={() => {
                 if (window.confirm("Restart the game? All progress will be lost.")) {
                   resetGame();

@@ -10,10 +10,10 @@ export function Panel({ header, children, className = "" }: PanelProps) {
   return (
     <div
       data-hud="true"
-      className="pointer-events-auto rounded-2xl border border-stone-300/60 bg-stone-50/95 shadow-lg shadow-black/20 backdrop-blur"
+      className="panel-parchment pointer-events-auto rounded-lg text-ink"
     >
       {header && (
-        <div className="border-b border-stone-300/60 px-4 py-2 font-display text-xs font-semibold uppercase tracking-wide text-stone-600">
+        <div className="mx-2 border-b border-wood/50 px-2 py-2 font-display text-sm font-semibold tracking-wider text-ink [font-variant-caps:small-caps]">
           {header}
         </div>
       )}

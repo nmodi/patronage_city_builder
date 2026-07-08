@@ -13,7 +13,7 @@ From the doc's "Key Design Principles" — flag it if a change would violate one
 - Spatial effects are soft: plaza proximity is a flat bonus, never a hard in/out radius.
 - Renaissance = prestige milestone soft ending; play continues afterward.
 
-- After implementing a phase in the design doc, update that phase to note that it is DONE. 
+- After implementing a phase in the design doc, move it to the done section. When other features are complete, mark them as *(built)*. 
 
 ## Current state vs. doc phases
 
