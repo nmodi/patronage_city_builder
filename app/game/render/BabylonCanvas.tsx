@@ -4,6 +4,7 @@ import { Engine } from "@babylonjs/core/Engines/engine";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
+import { ColorCurves } from "@babylonjs/core/Materials/colorCurves";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
@@ -71,14 +72,18 @@ export function BabylonCanvas() {
     const shadowGenerator = new ShadowGenerator(1024, dirLight);
     shadowGenerator.useBlurExponentialShadowMap = true;
 
-    // Warm cinematic grade: slight saturation/contrast lift plus a gentle vignette
-    const pipeline = new DefaultRenderingPipeline("grade", false, scene, [camera]);
-    pipeline.imageProcessingEnabled = true;
-    pipeline.imageProcessing.contrast = 1.12;
-    pipeline.imageProcessing.exposure = 1.02;
-    pipeline.imageProcessing.vignetteEnabled = true;
-    pipeline.imageProcessing.vignetteWeight = 1.4;
-    pipeline.imageProcessing.vignetteColor = new Color4(0.35, 0.22, 0.08, 0);
+    // Warm Renaissance grade: push the whole frame toward golden hour.
+    // Curves go on the scene config *before* the pipeline is built so the
+    // image-processing shader compiles with them from the start (setting
+    // colorCurvesEnabled after breaks under &synccompile's serial compiles).
+    const curves = new ColorCurves();
+    curves.globalHue = 25; // orange target hue
+    curves.globalDensity = 10; // strength of the shift toward it
+    curves.globalSaturation = 3; // slight richness lift
+    curves.shadowsHue = 25; // keep shadows warm too, so they don't fight the grade
+    curves.shadowsDensity = 5;
+    scene.imageProcessingConfiguration.colorCurves = curves;
+    scene.imageProcessingConfiguration.colorCurvesEnabled = true;
 
     const terrain = createTerrain(scene);
 
