@@ -382,5 +382,12 @@ export function createPlacementController(scene: Scene) {
     invalidMat.dispose();
   }
 
-  return { dispose };
+  // A selected building may begin as a fallback box while its model streams.
+  // Clearing it makes the next frame rebuild the preview from the loaded asset.
+  function refresh() {
+    clearGhost();
+    ghostBuiltRotation = null;
+  }
+
+  return { dispose, refresh };
 }

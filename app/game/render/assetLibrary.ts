@@ -639,16 +639,39 @@ async function getContainer(file: string, scene: Scene) {
   return load;
 }
 
-/** Load every manifest + scatter model up front so instantiation can stay synchronous. */
-export async function preloadModels(scene: Scene) {
-  const files = new Set<string>(SCATTER_FILES);
-  for (const def of Object.values(MODEL_MANIFEST)) {
-    for (const part of def.parts ?? []) files.add(part.file);
-    for (const part of def.variants ?? []) files.add(part.file);
-    for (const part of def.extendNegX ?? []) files.add(part.file);
-    for (const part of def.extendPosX ?? []) files.add(part.file);
-  }
-  await Promise.all([...files].map((file) => getContainer(file, scene)));
+function addModelFiles(files: Set<string>, def: ModelDef | undefined) {
+  if (!def) return;
+  for (const part of def.parts ?? []) files.add(part.file);
+  for (const part of def.variants ?? []) files.add(part.file);
+  for (const part of def.extendNegX ?? []) files.add(part.file);
+  for (const part of def.extendPosX ?? []) files.add(part.file);
+}
+
+// glTF parsing and material conversion run on the main thread. Keep only a few
+// files in flight so loading a save does not turn into one long completion task.
+async function preloadFiles(files: Iterable<string>, scene: Scene) {
+  const queue = [...new Set(files)];
+  const workers = Math.min(4, queue.length);
+  await Promise.all(
+    Array.from({ length: workers }, async () => {
+      while (queue.length > 0) {
+        const file = queue.pop();
+        if (file) await getContainer(file, scene);
+      }
+    })
+  );
+}
+
+/** Load only model files referenced by placed/selected building types. */
+export async function preloadBuildingModels(buildingIds: Iterable<BuildingId>, scene: Scene) {
+  const files = new Set<string>();
+  for (const buildingId of buildingIds) addModelFiles(files, MODEL_MANIFEST[buildingId]);
+  await preloadFiles(files, scene);
+}
+
+/** Wilderness is decorative, so it deliberately streams after the playable city. */
+export async function preloadEnvironmentModels(scene: Scene) {
+  await preloadFiles(SCATTER_FILES, scene);
 }
 
 function hashPosition(x: number, y: number) {
@@ -851,18 +874,30 @@ export const SCATTER_FILES = [
   ...SCATTER_ROCKS,
   ...SCATTER_BOULDERS,
   ...SCATTER_FENCES,
+  ...CYPRESS_VARIANTS.map((variant) => variant.file),
+  NATURE + "tree_simple.glb",
+  NATURE + "crops_dirtRow.glb",
+  TOWN + "wall-block.glb",
 ];
 const ENV_CLEARANCE = 4;
 const ENV_DEPTH = 60;
 
-/** Decorative wilderness on the hills outside the buildable grid: tree clumps,
- * bushes, rocks, the odd vineyard patch, and (very rarely) an old fence or
- * stone wall run. Instanced, no shadows. */
+type ScatterOptions = {
+  scale?: number;
+  stretch?: [number, number, number];
+  rotY?: number;
+  sinkY?: number;
+  drop?: number;
+};
+
+/** Decorative wilderness on the hills outside the buildable grid. Instances are
+ * emitted in small batches after the playable city has rendered at least once. */
 export function scatterEnvironment(
   heightAt: (x: number, z: number) => number,
   rand: () => number
 ) {
   const roots: TransformNode[] = [];
+  const placements: Array<{ file: string; x: number; z: number; opts: ScatterOptions }> = [];
   const buildHalfExtent = (GRID_SIZE * CELL_SIZE) / 2;
   const minDistance = buildHalfExtent + ENV_CLEARANCE;
 
@@ -870,14 +905,12 @@ export function scatterEnvironment(
     file: string,
     x: number,
     z: number,
-    opts: {
-      scale?: number;
-      stretch?: [number, number, number];
-      rotY?: number;
-      sinkY?: number;
-      drop?: number;
-    } = {}
+    opts: ScatterOptions = {}
   ) {
+    placements.push({ file, x, z, opts });
+  }
+
+  function instantiate({ file, x, z, opts }: (typeof placements)[number]) {
     const container = containers.get(file);
     if (!container) return;
     const entries = container.instantiateModelsToScene((name) => name, false);
@@ -1019,7 +1052,14 @@ export function scatterEnvironment(
     n += 1;
   }
 
+  let cursor = 0;
   return {
+    /** Returns true once all decorative instances have been emitted. */
+    renderNextBatch(limit = 32) {
+      const end = Math.min(cursor + limit, placements.length);
+      while (cursor < end) instantiate(placements[cursor++]);
+      return cursor >= placements.length;
+    },
     dispose() {
       for (const root of roots) root.dispose();
     },

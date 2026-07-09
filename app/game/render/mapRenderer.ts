@@ -1,6 +1,7 @@
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
+import "@babylonjs/core/Meshes/thinInstanceMesh";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
@@ -115,8 +116,22 @@ function computeExtend(tile: Tile, metadata: BuildingMetadata, tiles: Record<str
 export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerator) {
   const materialCache = new Map<string, StandardMaterial>();
   const active = new Map<string, TileMeshEntry>();
+  let renderedTiles: Record<string, Tile> = {};
+  const pendingOrigins = new Set<string>();
+  const extensionOrigins = new Set<string>();
 
   const gridLines = createGridLines(scene);
+
+  type RoadBatch = { mesh: Mesh; tiles: Map<string, Tile>; dirty: boolean };
+  function createRoadBatch(name: string): RoadBatch {
+    const mesh = MeshBuilder.CreateGround(name, { width: CELL_SIZE, height: CELL_SIZE }, scene);
+    mesh.material = getRoadMaterial(scene);
+    mesh.isPickable = false;
+    mesh.setEnabled(false);
+    return { mesh, tiles: new Map(), dirty: false };
+  }
+  // Paved roads share one thin-instance mesh instead of one ground mesh per cell.
+  const pavedRoads = createRoadBatch("paved-road-batch");
   const dirtOverlay = createDirtPathOverlay(scene);
 
   // Shared by every inactive-building marker — they're all identical amber diamonds.
@@ -151,19 +166,6 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     const { x, y, z } = gridToWorld(tile.position.x, tile.position.y, metadata, tile.rotation);
     mesh.position.set(x, y, z);
     return mesh;
-  }
-
-  function createRoadEntry(tile: Tile): TileMeshEntry {
-    const mesh = MeshBuilder.CreateGround(
-      `road-${tile.position.x}-${tile.position.y}`,
-      { width: CELL_SIZE, height: CELL_SIZE },
-      scene
-    );
-    mesh.material = getRoadMaterial(scene);
-    mesh.isPickable = false;
-    const { x, z } = gridToWorld(tile.position.x, tile.position.y);
-    mesh.position.set(x, 0.01, z);
-    return { box: mesh, model: null, apron: null, marker: null, smoke: null, buildingId: tile.buildingId, isActive: true, extendKey: "" };
   }
 
   // Flagstone ground over the full footprint, so `paved` buildings visually
@@ -245,13 +247,116 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     return metadata.size.height + 0.4;
   }
 
-  function sync(tiles: Record<string, Tile>) {
-    const origins = new Map<string, Tile>();
-    for (const tile of Object.values(tiles)) {
-      if (tile.isOrigin) origins.set(`${tile.position.x},${tile.position.y}`, tile);
+  function updateRoad(key: string, previous?: Tile, next?: Tile) {
+    if (previous?.type === "road" && previous.buildingId !== "dirt_path") {
+      if (pavedRoads.tiles.delete(key)) pavedRoads.dirty = true;
+    }
+    if (next?.type === "road" && next.buildingId !== "dirt_path") {
+      pavedRoads.tiles.set(key, next);
+      pavedRoads.dirty = true;
+    }
+  }
+
+  function flushRoadBatch(batch: RoadBatch) {
+    if (!batch.dirty) return;
+    if (batch.tiles.size === 0) {
+      batch.mesh.thinInstanceSetBuffer("matrix", null);
+      batch.mesh.setEnabled(false);
+      batch.dirty = false;
+      return;
+    }
+    const matrices = new Float32Array(batch.tiles.size * 16);
+    const matrix = Matrix.Identity();
+    let offset = 0;
+    for (const tile of batch.tiles.values()) {
+      const { x, z } = gridToWorld(tile.position.x, tile.position.y);
+      Matrix.TranslationToRef(x, 0.01, z, matrix);
+      matrix.copyToArray(matrices, offset);
+      offset += 16;
+    }
+    batch.mesh.thinInstanceSetBuffer("matrix", matrices, 16, true);
+    batch.mesh.setEnabled(batch.tiles.size > 0);
+    batch.dirty = false;
+  }
+
+  function renderOrigin(key: string) {
+    const tile = renderedTiles[key];
+    const entry = active.get(key);
+    if (!tile || !tile.isOrigin || tile.type === "road") {
+      if (entry) {
+        disposeEntry(entry);
+        active.delete(key);
+      }
+      extensionOrigins.delete(key);
+      return;
     }
 
-    // Dirt paths render on a single neighbor-aware overlay, not per-cell meshes.
+    const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
+    if (!metadata) return;
+    const extend = hasExtensions(tile.buildingId) ? computeExtend(tile, metadata, renderedTiles) : null;
+    const extendKey = extend ? `${extend.negX ? "n" : ""}${extend.posX ? "p" : ""}` : "";
+    let nextEntry = entry;
+    const staleBox = nextEntry?.box && hasModel(tile.buildingId);
+    if (!nextEntry || nextEntry.buildingId !== tile.buildingId || staleBox || nextEntry.extendKey !== extendKey) {
+      if (nextEntry) disposeEntry(nextEntry);
+      nextEntry = createEntry(tile, metadata, extend ?? undefined);
+      nextEntry.extendKey = extendKey;
+      active.set(key, nextEntry);
+    } else if (nextEntry.isActive !== tile.isActive) {
+      nextEntry.isActive = tile.isActive;
+      if (nextEntry.model) setBuildingActive(nextEntry.model, tile.isActive);
+      if (nextEntry.box) nextEntry.box.material = getMaterial(metadata.color, metadata.type, !tile.isActive);
+      nextEntry.smoke?.setActive(tile.isActive);
+    }
+
+    if (hasExtensions(tile.buildingId)) extensionOrigins.add(key);
+    else extensionOrigins.delete(key);
+
+    const needsMarker = !tile.isActive;
+    if (needsMarker && !nextEntry.marker) {
+      const marker = MeshBuilder.CreatePlane(`marker-${key}`, { width: 0.35, height: 0.18 }, scene);
+      marker.material = markerMaterial;
+      marker.isPickable = false;
+      const { x, z } = gridToWorld(tile.position.x, tile.position.y, metadata, tile.rotation);
+      marker.position.set(x, markerHeight(nextEntry, metadata), z);
+      marker.billboardMode = 7; // BILLBOARDMODE_ALL
+      nextEntry.marker = marker;
+    } else if (!needsMarker && nextEntry.marker) {
+      nextEntry.marker.dispose();
+      nextEntry.marker = null;
+    }
+  }
+
+  /** Queue only changed origins; callers spread construction over animation frames. */
+  function queueSync(tiles: Record<string, Tile>) {
+    const changedKeys = new Set<string>();
+    for (const [key, tile] of Object.entries(renderedTiles)) {
+      if (tiles[key] !== tile) changedKeys.add(key);
+    }
+    for (const [key, tile] of Object.entries(tiles)) {
+      if (renderedTiles[key] !== tile) changedKeys.add(key);
+    }
+    if (changedKeys.size === 0) return;
+
+    for (const key of changedKeys) {
+      const previous = renderedTiles[key];
+      const next = tiles[key];
+      updateRoad(key, previous, next);
+      if (previous && previous.type !== "road") {
+        pendingOrigins.add(`${previous.origin.x},${previous.origin.y}`);
+      }
+      if (next && next.type !== "road") {
+        pendingOrigins.add(`${next.origin.x},${next.origin.y}`);
+      }
+    }
+    // Only colonnades need neighbor recomputation, and they are rare enough that
+    // checking this small set is cheaper and simpler than a full-map scan.
+    for (const key of extensionOrigins) pendingOrigins.add(key);
+    renderedTiles = tiles;
+    flushRoadBatch(pavedRoads);
+
+    // Keep the original neighbor-aware dirt treatment. This intentionally scans
+    // and redraws the full overlay whenever the layout changes (see backlog).
     const dirt = new Set<string>();
     const occupied = new Set<string>();
     for (const [key, tile] of Object.entries(tiles)) {
@@ -259,67 +364,24 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
       if (tile.buildingId === "dirt_path") dirt.add(key);
     }
     dirtOverlay.update(dirt, occupied);
+  }
 
-    for (const [key, entry] of active) {
-      if (!origins.has(key)) {
-        disposeEntry(entry);
-        active.delete(key);
-      }
+  /** Builds at most `budget` entries. Returns true when the pending work is drained. */
+  function processSync(budget = Number.POSITIVE_INFINITY) {
+    let built = 0;
+    while (pendingOrigins.size > 0 && built < budget) {
+      const key = pendingOrigins.values().next().value as string;
+      pendingOrigins.delete(key);
+      renderOrigin(key);
+      built += 1;
     }
+    return pendingOrigins.size === 0;
+  }
 
-    for (const [key, tile] of origins) {
-      const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
-      if (!metadata) continue;
-
-      if (metadata.type === "road") {
-        const existing = active.get(key);
-        if (tile.buildingId === "dirt_path") {
-          // Overlay-drawn; drop any stale per-cell quad from a paved→dirt swap.
-          if (existing) {
-            disposeEntry(existing);
-            active.delete(key);
-          }
-          continue;
-        }
-        if (!existing || existing.buildingId !== tile.buildingId) {
-          if (existing) disposeEntry(existing);
-          active.set(key, createRoadEntry(tile));
-        }
-        continue;
-      }
-
-      // Neighbor-aware models (colonnade) rebuild when an abutting building
-      // appears or disappears — the signature is compared every sync.
-      const extend = hasExtensions(tile.buildingId) ? computeExtend(tile, metadata, tiles) : null;
-      const extendKey = extend ? `${extend.negX ? "n" : ""}${extend.posX ? "p" : ""}` : "";
-
-      let entry = active.get(key);
-      const staleBox = entry?.box && hasModel(tile.buildingId); // placed before models finished loading
-      if (!entry || entry.buildingId !== tile.buildingId || staleBox || entry.extendKey !== extendKey) {
-        if (entry) disposeEntry(entry);
-        entry = createEntry(tile, metadata, extend ?? undefined);
-        entry.extendKey = extendKey;
-        active.set(key, entry);
-      } else if (entry.isActive !== tile.isActive) {
-        entry.isActive = tile.isActive;
-        if (entry.model) setBuildingActive(entry.model, tile.isActive);
-        if (entry.box) entry.box.material = getMaterial(metadata.color, metadata.type, !tile.isActive);
-        entry.smoke?.setActive(tile.isActive);
-      }
-
-      const needsMarker = !tile.isActive;
-      if (needsMarker && !entry.marker) {
-        const marker = MeshBuilder.CreatePlane(`marker-${key}`, { width: 0.35, height: 0.18 }, scene);
-        marker.material = markerMaterial;
-        marker.isPickable = false;
-        const { x, z } = gridToWorld(tile.position.x, tile.position.y, metadata, tile.rotation);
-        marker.position.set(x, markerHeight(entry, metadata), z);
-        marker.billboardMode = 7; // BILLBOARDMODE_ALL
-        entry.marker = marker;
-      } else if (!needsMarker && entry.marker) {
-        entry.marker.dispose();
-        entry.marker = null;
-      }
+  /** Swap placeholder boxes for just-loaded model types without rebuilding the map. */
+  function upgradeModels(buildingIds: ReadonlySet<BuildingId>) {
+    for (const [key, entry] of active) {
+      if (entry.box && buildingIds.has(entry.buildingId)) pendingOrigins.add(key);
     }
   }
 
@@ -333,9 +395,10 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     for (const mat of materialCache.values()) mat.dispose();
     materialCache.clear();
     markerMaterial.dispose();
+    pavedRoads.mesh.dispose();
     dirtOverlay.dispose();
     gridLines.dispose();
   }
 
-  return { sync, dispose, setGridVisible };
+  return { queueSync, processSync, upgradeModels, dispose, setGridVisible };
 }

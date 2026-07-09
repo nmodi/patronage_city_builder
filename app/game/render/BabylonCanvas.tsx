@@ -7,12 +7,16 @@ import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator"
 import { ColorCurves } from "@babylonjs/core/Materials/colorCurves";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
-import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
 import { Scene } from "@babylonjs/core/scene";
 
 import type { BuildingId } from "~/game/buildings";
 import { useGameStore } from "~/stores/useGameStore";
-import { disposeAssetLibrary, preloadModels, scatterEnvironment } from "./assetLibrary";
+import {
+  disposeAssetLibrary,
+  preloadBuildingModels,
+  preloadEnvironmentModels,
+  scatterEnvironment,
+} from "./assetLibrary";
 import { createCitizens } from "./citizens";
 import { createTileRenderer } from "./mapRenderer";
 import { createPlacementController } from "./placement";
@@ -28,8 +32,9 @@ export function BabylonCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // preserveDrawingBuffer so canvas readback (screenshots) works
-    const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+    // Readback is only needed by the development screenshot workflow. Keeping the
+    // back buffer in production costs both GPU memory and frame time.
+    const engine = new Engine(canvas, true, { preserveDrawingBuffer: import.meta.env.DEV, stencil: true });
     const scene = new Scene(engine);
     // ponytail: dev-only hooks for headless screenshot verification (see memory: dev-verification-workflow)
     if (import.meta.env.DEV) {
@@ -91,31 +96,98 @@ export function BabylonCanvas() {
     const placementController = createPlacementController(scene);
     const citizens = createCitizens(scene);
 
-    tileRenderer.sync(useGameStore.getState().map.tiles);
-    citizens.sync(useGameStore.getState().map.tiles);
     let disposed = false;
-    let treeScatter: { dispose: () => void } | null = null;
-    preloadModels(scene)
-      .catch((error) => console.error("Model preload failed:", error))
-      .finally(() => {
-        if (disposed) return;
-        // Re-sync so anything placed before models finished loading swaps its fallback box.
-        tileRenderer.sync(useGameStore.getState().map.tiles);
-        treeScatter = scatterEnvironment(terrain.heightAt, terrain.rand);
-        // &ghost=<buildingId> (dev): enter placement mode with the pointer
-        // parked near canvas center — headless screenshots can't move the
-        // mouse, and this lets them capture the placement ghost + facing
-        // arrow. After preload so the ghost gets the real model, not the box.
-        const ghostId = import.meta.env.DEV && new URLSearchParams(window.location.search).get("ghost");
-        if (ghostId) {
-          scene.pointerX = engine.getRenderWidth() / 2;
-          scene.pointerY = engine.getRenderHeight() * 0.72;
-          useGameStore.getState().setSelectedBuilding(ghostId as BuildingId);
+    let treeScatter: ReturnType<typeof scatterEnvironment> | null = null;
+    let tileFrame: number | null = null;
+    let scatterFrame: number | null = null;
+    let environmentTimer: number | null = null;
+    const pendingModelIds = new Set<BuildingId>();
+    let modelLoadRunning = false;
+
+    // Construct a handful of origin entries per frame. A large persisted city
+    // becomes visible immediately rather than blocking the first canvas paint.
+    function flushTileWork() {
+      if (disposed) return;
+      if (tileRenderer.processSync(16)) {
+        tileFrame = null;
+      } else {
+        tileFrame = window.requestAnimationFrame(flushTileWork);
+      }
+    }
+
+    function scheduleTileWork() {
+      if (tileFrame == null) tileFrame = window.requestAnimationFrame(flushTileWork);
+    }
+
+    function queueModels(ids: Iterable<BuildingId>) {
+      for (const id of ids) pendingModelIds.add(id);
+      void loadPendingModels();
+    }
+
+    async function loadPendingModels() {
+      if (modelLoadRunning) return;
+      modelLoadRunning = true;
+      while (!disposed && pendingModelIds.size > 0) {
+        const ids = new Set(pendingModelIds);
+        pendingModelIds.clear();
+        try {
+          await preloadBuildingModels(ids, scene);
+          if (disposed) return;
+          // Only entries of the newly loaded types are upgraded from boxes.
+          tileRenderer.upgradeModels(ids);
+          placementController.refresh();
+          scheduleTileWork();
+        } catch (error) {
+          console.error("Model preload failed:", error);
         }
-      });
+      }
+      modelLoadRunning = false;
+    }
+
+    function queueMap(tiles: ReturnType<typeof useGameStore.getState>["map"]["tiles"]) {
+      tileRenderer.queueSync(tiles);
+      scheduleTileWork();
+      const buildingIds: BuildingId[] = [];
+      for (const tile of Object.values(tiles)) {
+        if (tile.isOrigin && tile.type !== "road") buildingIds.push(tile.buildingId);
+      }
+      queueModels(buildingIds);
+    }
+
+    const initialTiles = useGameStore.getState().map.tiles;
+    queueMap(initialTiles);
+    citizens.sync(initialTiles);
+
+    // The environment is intentionally non-blocking: it loads after the city
+    // had a chance to paint, then emits a small batch every animation frame.
+    environmentTimer = window.setTimeout(() => {
+      void preloadEnvironmentModels(scene)
+        .then(() => {
+          if (disposed) return;
+          treeScatter = scatterEnvironment(terrain.heightAt, terrain.rand);
+          const renderScatter = () => {
+            if (disposed || !treeScatter) return;
+            if (!treeScatter.renderNextBatch(32)) {
+              scatterFrame = window.requestAnimationFrame(renderScatter);
+            }
+          };
+          scatterFrame = window.requestAnimationFrame(renderScatter);
+        })
+        .catch((error) => console.error("Environment preload failed:", error));
+    }, 750);
+
+    // &ghost=<buildingId> (dev): enter placement mode with the pointer parked
+    // near canvas center. Loading is on demand just like the normal palette.
+    const ghostId = import.meta.env.DEV && new URLSearchParams(window.location.search).get("ghost");
+    if (ghostId) {
+      scene.pointerX = engine.getRenderWidth() / 2;
+      scene.pointerY = engine.getRenderHeight() * 0.72;
+      useGameStore.getState().setSelectedBuilding(ghostId as BuildingId);
+    }
+
     const unsubscribe = useGameStore.subscribe((state, prevState) => {
       if (state.map.tiles !== prevState.map.tiles) {
-        tileRenderer.sync(state.map.tiles);
+        queueMap(state.map.tiles);
         citizens.sync(state.map.tiles);
       }
       if (state.map.selectedBuilding !== prevState.map.selectedBuilding) {
@@ -123,6 +195,7 @@ export function BabylonCanvas() {
         if (state.map.selectedBuilding) camera.inputs.attached.pointers.detachControl();
         else camera.inputs.attached.pointers.attachControl(true);
         tileRenderer.setGridVisible(!!state.map.selectedBuilding);
+        if (state.map.selectedBuilding) queueModels([state.map.selectedBuilding]);
       }
     });
 
@@ -167,6 +240,9 @@ export function BabylonCanvas() {
 
     return () => {
       disposed = true;
+      if (tileFrame != null) window.cancelAnimationFrame(tileFrame);
+      if (scatterFrame != null) window.cancelAnimationFrame(scatterFrame);
+      if (environmentTimer != null) window.clearTimeout(environmentTimer);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
@@ -183,7 +259,11 @@ export function BabylonCanvas() {
 
   return (
     <div className="relative w-full h-full">
-      <canvas ref={canvasRef} className="w-full h-full outline-none touch-none" />
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full outline-none touch-none"
+        style={{ backgroundColor: "#e9c98f" }}
+      />
     </div>
   );
 }
