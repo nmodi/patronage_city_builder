@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Beer,
   Building2,
@@ -52,47 +53,64 @@ export function BuildingPalette() {
   const selectedBuilding = useGameStore((s) => s.map.selectedBuilding);
   const setSelectedBuilding = useGameStore((s) => s.setSelectedBuilding);
   const florins = useGameStore((s) => s.florins);
+  const [openCategory, setOpenCategory] = useState<BuildingType | null>(null);
+
+  const openBuildings = openCategory ? (BUILDING_METADATA_BY_TYPE[openCategory] ?? []) : [];
+  const selectedCategory = selectedBuilding
+    ? CATEGORIES.find(({ type }) =>
+        BUILDING_METADATA_BY_TYPE[type]?.some(({ id }) => id === selectedBuilding),
+      )?.type
+    : null;
 
   return (
     <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
-      <Panel className="flex items-start gap-4">
-        {CATEGORIES.map(({ type, label, icon: Icon }, index) => {
-          const buildings = BUILDING_METADATA_BY_TYPE[type];
-          if (!buildings?.length) return null;
+      <Panel className="flex gap-1.5">
+        {CATEGORIES.map(({ type, label, icon: Icon }) => {
+          if (!BUILDING_METADATA_BY_TYPE[type]?.length) return null;
+          const isOpen = openCategory === type;
+          const hasSelection = selectedCategory === type;
           return (
-            <div
-              key={type}
-              className={`flex flex-col gap-1.5 ${index > 0 ? "border-l border-wood/40 pl-4" : ""}`}
-            >
-              <div className="flex items-center justify-center gap-1.5 font-display text-xs font-semibold tracking-wider text-ink-faint">
-                <Icon className="h-3.5 w-3.5 text-sienna" />
-                {label}
-              </div>
-              <div className="flex gap-1.5">
-                {buildings.map(({ id, name, baseCost }) => {
-                  const buildingId = id as BuildingId;
-                  const BuildingIcon = BUILDING_ICONS[buildingId] ?? Warehouse;
-                  const isSelected = selectedBuilding === buildingId;
-                  const canAfford = florins >= baseCost;
-                  return (
-                    <button
-                      key={id}
-                      className={`flex h-28 w-24 min-w-0 shrink-0 flex-col items-center justify-between rounded-md border px-1.5 py-2 transition ${
-                        isSelected
-                          ? "border-sienna bg-white/80 text-ink"
-                          : "border-wood/60 bg-white/50 text-ink hover:bg-white/80"
-                      } ${canAfford ? "" : "opacity-50"}`}
-                      onClick={() => setSelectedBuilding(isSelected ? null : buildingId)}
-                    >
-                      <span className="flex h-9 items-center text-center text-sm font-semibold leading-tight">
-                        {name}
-                      </span>
-                      <BuildingIcon className="h-7 w-7 text-prestige-gold" strokeWidth={1.75} />
-                      <span className="text-xs text-ink-faint">{baseCost}ƒ</span>
-                    </button>
-                  );
-                })}
-              </div>
+            <div key={type} className="relative">
+              {isOpen && openBuildings.length > 0 && (
+                <div className="absolute bottom-full left-0 mb-4 w-max">
+                  <Panel className="flex gap-1.5">
+                    {openBuildings.map(({ id, name, baseCost }) => {
+                      const buildingId = id as BuildingId;
+                      const BuildingIcon = BUILDING_ICONS[buildingId] ?? Warehouse;
+                      const isSelected = selectedBuilding === buildingId;
+                      const canAfford = florins >= baseCost;
+                      return (
+                        <button
+                          key={id}
+                          className={`flex h-28 w-24 min-w-0 shrink-0 flex-col items-center justify-between rounded-md border px-1.5 py-2 transition ${
+                            isSelected
+                              ? "border-sienna bg-white/80 text-ink"
+                              : "border-wood/60 bg-white/50 text-ink hover:bg-white/80"
+                          } ${canAfford ? "" : "opacity-50"}`}
+                          onClick={() => setSelectedBuilding(isSelected ? null : buildingId)}
+                        >
+                          <span className="flex h-9 items-center text-center text-sm font-semibold leading-tight">
+                            {name}
+                          </span>
+                          <BuildingIcon className="h-7 w-7 text-prestige-gold" strokeWidth={1.75} />
+                          <span className="text-xs text-ink-faint">{baseCost}ƒ</span>
+                        </button>
+                      );
+                    })}
+                  </Panel>
+                </div>
+              )}
+              <button
+                className={`flex flex-col items-center gap-1 rounded-md border px-3 py-2 transition ${
+                  isOpen || hasSelection
+                    ? "border-sienna bg-white/80 text-ink"
+                    : "border-wood/60 bg-white/50 text-ink hover:bg-white/80"
+                }`}
+                onClick={() => setOpenCategory(isOpen ? null : type)}
+              >
+                <Icon className="h-5 w-5 text-sienna" strokeWidth={1.75} />
+                <span className="font-display text-xs font-semibold tracking-wider">{label}</span>
+              </button>
             </div>
           );
         })}
