@@ -16,7 +16,7 @@ import {
   setBuildingActive,
   type BuildingModel,
 } from "./assetLibrary";
-import { getRoadMaterial } from "./paths";
+import { getApronMaterial, getRoadMaterial } from "./paths";
 import { createSmokePlume, type SmokePlume } from "./smoke";
 
 const GRID_ALPHA_IDLE = 0;
@@ -65,6 +65,7 @@ function desaturate(color: Color3) {
 type TileMeshEntry = {
   box: Mesh | null;
   model: BuildingModel | null;
+  apron: Mesh | null;
   marker: Mesh | null;
   smoke: SmokePlume | null;
   buildingId: BuildingId;
@@ -121,10 +122,29 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     mesh.isPickable = false;
     const { x, z } = gridToWorld(tile.position.x, tile.position.y);
     mesh.position.set(x, 0.01, z);
-    return { box: mesh, model: null, marker: null, smoke: null, buildingId: tile.buildingId, isActive: true };
+    return { box: mesh, model: null, apron: null, marker: null, smoke: null, buildingId: tile.buildingId, isActive: true };
+  }
+
+  // Flagstone ground over the full footprint, so `paved` buildings visually
+  // join adjacent plazas/roads instead of showing a grass rim of fit slack.
+  // ponytail: stays full-color when the building is inactive — it's just ground.
+  function createApron(tile: Tile, metadata: BuildingMetadata): Mesh | null {
+    if (!metadata.paved) return null;
+    const { width, depth } = rotatedFootprint(metadata, tile.rotation);
+    const apron = MeshBuilder.CreateGround(
+      `apron-${tile.buildingId}`,
+      { width: width * CELL_SIZE, height: depth * CELL_SIZE },
+      scene
+    );
+    apron.material = getApronMaterial(width, depth, scene);
+    apron.isPickable = false;
+    const { x, z } = gridToWorld(tile.position.x, tile.position.y, metadata, tile.rotation);
+    apron.position.set(x, 0.005, z);
+    return apron;
   }
 
   function createEntry(tile: Tile, metadata: BuildingMetadata): TileMeshEntry {
+    const apron = createApron(tile, metadata);
     const model = instantiateBuilding(
       tile.buildingId,
       rotatedFootprint(metadata, tile.rotation),
@@ -134,8 +154,8 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     );
     if (model) {
       const { x, z } = gridToWorld(tile.position.x, tile.position.y, metadata, tile.rotation);
-      model.root.position.x = x;
-      model.root.position.z = z;
+      model.root.position.x = x + model.offsetX;
+      model.root.position.z = z + model.offsetZ;
       // ponytail: models cast onto the ground but don't receive — blur-ESM self-shadow
       // acne turns the glTF walls to mud; switch to PCF shadows if receiving ever matters
       for (const mesh of model.meshes) {
@@ -152,11 +172,12 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
         smoke = createSmokePlume(scene, new Vector3(top.x - 0.08, top.y, top.z - 0.08));
         smoke.setActive(tile.isActive);
       }
-      return { box: null, model, marker: null, smoke, buildingId: tile.buildingId, isActive: tile.isActive };
+      return { box: null, model, apron, marker: null, smoke, buildingId: tile.buildingId, isActive: tile.isActive };
     }
     return {
       box: createBoxMesh(tile, metadata),
       model: null,
+      apron,
       marker: null,
       smoke: null,
       buildingId: tile.buildingId,
@@ -168,6 +189,7 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     entry.marker?.dispose();
     entry.box?.dispose();
     entry.smoke?.dispose();
+    entry.apron?.dispose();
     entry.model?.root.dispose();
   }
 

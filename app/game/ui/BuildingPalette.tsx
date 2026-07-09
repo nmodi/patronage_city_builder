@@ -5,17 +5,23 @@ import {
   Building2,
   Castle,
   Church,
+  Columns3,
   Cross,
+  Droplets,
   Footprints,
   Gem,
+  Grape,
   Hammer,
   Home,
   Landmark,
   Milestone,
   Palette,
+  Pyramid,
   Route,
   Store,
+  TreeDeciduous,
   TreePine,
+  Trees,
   Warehouse,
   Wheat,
   type LucideIcon,
@@ -54,7 +60,13 @@ const BUILDING_ICONS: Record<BuildingId, LucideIcon> = {
   path: Footprints,
   road: Route,
   avenue: Milestone,
-  tree: TreePine,
+  tree: TreeDeciduous,
+  cypress: TreePine,
+  vineyard: Grape,
+  fountain: Droplets,
+  colonnade: Columns3,
+  obelisk: Pyramid,
+  olive_grove: Trees,
 };
 
 export function BuildingPalette() {
@@ -83,7 +95,10 @@ export function BuildingPalette() {
           return (
             <div key={type} className="relative">
               {isOpen && openBuildings.length > 0 && (
-                <div className="absolute bottom-full left-0 mb-4 w-max">
+                <div
+                  // Last tab's wide list overflows the viewport if left-aligned.
+                  className={`absolute bottom-full mb-4 w-max ${type === "decoration" ? "right-0" : "left-0"}`}
+                >
                   <Panel className="flex gap-1.5">
                     {openBuildings.map(({ id, name, baseCost }) => {
                       const buildingId = id as BuildingId;

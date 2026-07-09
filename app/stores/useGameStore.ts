@@ -155,11 +155,21 @@ const initializer: StateCreator<GameState> = (set, get) => ({
           return s;
         }
 
+        // Decorations may overlap existing buildings (a colonnade against a
+        // palazzo); they claim only the free cells. The origin cell must be
+        // free — it anchors rendering and demolition.
+        const canOverlap = type === "decoration";
         for (let dx = 0; dx < width; dx += 1) {
           for (let dy = 0; dy < depth; dy += 1) {
             const key = `${position.x + dx},${position.y + dy}`;
-            if (s.map.tiles[key] || batchCells.has(key)) {
+            if (batchCells.has(key)) {
               return s;
+            }
+            if (s.map.tiles[key]) {
+              if (!canOverlap || (dx === 0 && dy === 0)) {
+                return s;
+              }
+              continue;
             }
             batchCells.add(key);
           }
@@ -194,6 +204,7 @@ const initializer: StateCreator<GameState> = (set, get) => ({
             const cellX = originX + dx;
             const cellY = originY + dy;
             const key = `${cellX},${cellY}`;
+            if (newTiles[key]) continue; // overlapped cell keeps its owner
             newTiles[key] = {
               buildingId,
               type,
@@ -238,7 +249,13 @@ const initializer: StateCreator<GameState> = (set, get) => ({
 
       for (let dx = 0; dx < width; dx += 1) {
         for (let dy = 0; dy < depth; dy += 1) {
-          delete newTiles[`${originX + dx},${originY + dy}`];
+          const key = `${originX + dx},${originY + dy}`;
+          const cell = newTiles[key];
+          // Only clear this building's own cells — an overlapping decoration
+          // (or the building it overlaps) keeps its claim.
+          if (cell && cell.origin.x === originX && cell.origin.y === originY) {
+            delete newTiles[key];
+          }
         }
       }
 

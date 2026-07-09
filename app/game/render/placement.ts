@@ -290,11 +290,14 @@ export function createPlacementController(scene: Scene) {
     const footprint = rotatedFootprint(metadata, ghostRotation ?? undefined);
     const fitsFootprint =
       currentPosition.x + footprint.width <= GRID_SIZE && currentPosition.y + footprint.depth <= GRID_SIZE;
+    // Decorations may overlap existing buildings; only their origin cell must be free.
+    const canOverlap = metadata.type === "decoration";
     let areaFree = false;
     if (fitsFootprint) {
       areaFree = true;
       for (let dx = 0; dx < footprint.width && areaFree; dx += 1) {
         for (let dy = 0; dy < footprint.depth; dy += 1) {
+          if (canOverlap && !(dx === 0 && dy === 0)) continue;
           if (state.getTileAt({ x: currentPosition.x + dx, y: currentPosition.y + dy })) {
             areaFree = false;
             break;
@@ -313,7 +316,7 @@ export function createPlacementController(scene: Scene) {
 
     setGhostVisible(true);
     if (ghostModel) {
-      ghostModel.root.position.set(xPos, ghostModelBaseY, zPos);
+      ghostModel.root.position.set(xPos + ghostModel.offsetX, ghostModelBaseY, zPos + ghostModel.offsetZ);
       if (canPlaceHere !== ghostIsValid) {
         overrideMaterials(ghostModel, canPlaceHere ? validMat : invalidMat);
         ghostIsValid = canPlaceHere;

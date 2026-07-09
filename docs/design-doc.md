@@ -209,7 +209,7 @@ The full roster below is the long-term target, implemented incrementally. *(buil
 - **Spice Trader** — prestige + florin boost
 
 ### Decorative
-- Tree *(built)*, Bell Tower / Campanile *(built — the cathedral's old tower as a freestanding decoration)*, Fountain, Garden, Colonnade, Loggia, Sculpture Display, Gallery Wall, Memorial Column / Obelisk
+- Tree *(built)*, Cypress *(built — stretched/sunk Kenney pine)*, Bell Tower / Campanile *(built — the cathedral's old tower as a freestanding decoration)*, Fountain *(built)*, Vineyard *(built — dirt furrows planted with rows of vine-on-post trees)*, Olive Grove *(built)*, Colonnade *(built)*, Memorial Column / Obelisk *(built — kitbashed pillar + block + point roof)*, Garden, Loggia, Sculpture Display, Gallery Wall
 
 ### Diversity incentive
 - **Diminishing returns:** duplicate buildings of the same type yield less per additional building.
@@ -289,7 +289,7 @@ Art direction: free CC0 packs — Kenney Fantasy Town Kit (buildings/props, kitb
 - **G2 — Terrain** *(done)*: flat-shaded ground, hills, tree scatter, fog horizon
 - **G3 — Ground dressing** *(done)*: kit path pieces for roads, composed plaza, grid hidden except while placing
 - **G4 — Life & polish** *(done)*: chimney smoke on active buildings, landmark label pins, rendering pipeline grade
-- **G5 — Stretch** *(open)*: river + bridge, decorative citizens *(built — `render/citizens.ts`, cosmetic meeples random-walking roads/plazas/markets)*, boats, banners, obelisk model
+- **G5 — Stretch** *(open)*: river + bridge, decorative citizens *(built — `render/citizens.ts`, cosmetic meeples random-walking roads/plazas/markets)*, boats, banners, obelisk model *(built — kitbashed decoration, see Decorative roster)*
 
 Dev helpers: `/?demo` seeds a visual test city, `&pause` freezes the tick for stable screenshots.
 

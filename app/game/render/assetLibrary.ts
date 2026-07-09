@@ -25,6 +25,11 @@ type Part = {
   rotationY?: number;
   /** Uniform, or per-axis (e.g. squash roof Y for a shallower pitch). */
   scale?: number | [number, number, number];
+  /** Per-variant override of ModelDef.sinkY (trunk heights differ per model). */
+  sinkY?: number;
+  /** Exclude from the base-level bounding fit, so a negative position.y sinks
+   * this part below ground instead of being cancelled by the rebase. */
+  buried?: boolean;
 };
 
 type ModelDef = {
@@ -38,6 +43,8 @@ type ModelDef = {
   fit?: number;
   /** Squash the whole composed model's height after footprint fitting (1 = as-fit). */
   scaleY?: number;
+  /** Fraction of the fitted height buried below ground (hides bare trunks). */
+  sinkY?: number;
   /** Scale x/z independently to fill both footprint axes (rectangular prefabs). */
   stretch?: boolean;
   /** "quarter" = random 90° steps, "free" = any angle. Seeded by grid position. */
@@ -47,6 +54,33 @@ type ModelDef = {
 
 const TOWN = "/models/town/";
 const NATURE = "/models/nature/";
+
+// Kenney's tall pines double as Italian cypresses: stretched into a slender
+// column and sunk so the bare trunk is buried (shared with the hill scatter).
+// sinkY = each glb's measured foliage-bottom fraction (A: trunk tops at
+// 0.63/1.53, B: 1.03/1.94) plus a hair so foliage meets the ground.
+const CYPRESS_STRETCH = 3.0;
+const CYPRESS_VARIANTS: Part[] = [
+  { file: "/models/nature/tree_pineTallA.glb", sinkY: 0.44 },
+  { file: "/models/nature/tree_pineTallB.glb", sinkY: 0.57 },
+  { file: "/models/nature/tree_pineTallC.glb", sinkY: 0.4 },
+  { file: "/models/nature/tree_pineTallD.glb", sinkY: 0.52 },
+];
+
+// Vineyard: three dirt furrows, each planted with a row of small "grapevine"
+// trees (tree_simple's bare trunk reads as the training post).
+const VINE_XS = [-2.1, -1.26, -0.42, 0.42, 1.26, 2.1];
+const VINEYARD_PARTS: Part[] = [-1.3, 0, 1.3].flatMap((z, row) => [
+  { file: NATURE + "crops_dirtRow.glb", position: [0, 0, z], scale: [5.2, 1, 1] } as Part,
+  ...VINE_XS.map(
+    (x, i): Part => ({
+      file: NATURE + "tree_simple.glb",
+      position: [x, -0.3, z],
+      scale: [0.9, 0.5 + ((row + i) % 3) * 0.06, 0.9],
+      buried: true,
+    })
+  ),
+]);
 
 /** Shallower roof pitch: kit roofs squashed to 60% height, origin at the base
  * so they stay flush on the walls. */
@@ -59,6 +93,11 @@ const MATERIAL_TINTS: Record<string, Record<string, string>> = {
   [NATURE + "tree_oak.glb"]: { leafsGreen: "#5f7540", woodBark: "#6f523a" },
   [NATURE + "tree_pineTallA.glb"]: { leafsDark: "#3f5c35", woodBarkDark: "#6f523a" },
   [NATURE + "tree_pineTallB.glb"]: { leafsDark: "#44613a", woodBarkDark: "#6f523a" },
+  [NATURE + "tree_pineTallC.glb"]: { leafsDark: "#3f5c35", woodBarkDark: "#6f523a" },
+  [NATURE + "tree_pineTallD.glb"]: { leafsDark: "#44613a", woodBarkDark: "#6f523a" },
+  // Vineyard pieces: a small lollipop tree reads as a grapevine on its post.
+  [NATURE + "tree_simple.glb"]: { leafsGreen: "#55743c", woodBark: "#7a5a40" },
+  [NATURE + "crops_dirtRow.glb"]: { dirt: "#8a6a4d", dirtDark: "#6f5238" },
 };
 
 export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
@@ -67,9 +106,9 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "wall-block.glb", position: [0, 0, 0] },
       { file: TOWN + "roof-gable.glb", position: [0, 1, 0], scale: ROOF_SCALE },
     ],
-    fit: 0.75,
-    // 0.66 puts the ridge at ~2.4 person-heights (~13.7 ft vs a 5'8" person).
-    scaleY: 0.66,
+    fit: 0.85,
+    // Keeps the ridge at ~2.4 person-heights (~13.7 ft) after the fit bump.
+    scaleY: 0.58,
     randomRotate: "quarter",
   },
   townhouse: {
@@ -81,9 +120,9 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
     ],
     // Widened + squashed together: at fit 0.65 / full height the two-story
     // stack read as a tower next to person-scale citizens.
-    fit: 0.72,
+    fit: 0.82,
     // ~22.4 ft: cottage story (13.7 ft) plus a ~9 ft second floor.
-    scaleY: 0.64,
+    scaleY: 0.56,
     randomRotate: "quarter",
   },
   // Long workshop hall: two bays under a flat roof, chimney on the far bay (3x2 footprint).
@@ -95,8 +134,8 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "roof-flat.glb", position: [0.5, 1, 0] },
       { file: TOWN + "chimney.glb", position: [0.5, 0.55, 0] },
     ],
-    fit: 0.85,
-    scaleY: 0.7, // ~12 ft roofline, chimney to ~16 ft
+    fit: 0.92,
+    scaleY: 0.65, // ~12 ft roofline, chimney to ~16 ft
     stretch: true,
   },
   // Facade panels (wall-arch, wall-door, wall-window-*) are thin pieces on the
@@ -155,6 +194,9 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
     ],
     fit: 0.9,
     scaleY: 0.7,
+    // Design is ~2.3:1 but the footprint is 10×8 — fill the depth too, or half
+    // the claim reads as empty forecourt.
+    stretch: true,
   },
   // Cathedral, front facing +X, symmetrical like Santa Maria Novella:
   // two-story nave under a high gable (ridge runs along X in the kit) with a
@@ -191,8 +233,9 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "wall-arch.glb", position: [0, 0, 1.02], rotationY: -Math.PI / 2 },
       { file: TOWN + "wall-arch.glb", position: [1, 0, 1.02], rotationY: -Math.PI / 2 },
     ],
-    fit: 0.9,
-    scaleY: 0.75,
+    fit: 0.95,
+    scaleY: 0.71,
+    stretch: true,
   },
   // Small parish chapel, front facing +Z: single 1.5-story nave under a gable
   // (rotated so the ridge runs along Z), door + rose window on the facade
@@ -215,8 +258,9 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "wall-block.glb", position: [0, 1.55, 0.35], scale: [0.32, 0.6, 0.32] },
       { file: TOWN + "roof-point.glb", position: [0, 2.15, 0.35], scale: 0.55 },
     ],
-    fit: 0.85,
-    scaleY: 0.7,
+    fit: 0.95,
+    scaleY: 0.63,
+    stretch: true,
   },
   pigment_trader: {
     parts: [
@@ -224,8 +268,8 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "banner-green.glb", position: [0, 0.25, 0] },
       { file: TOWN + "roof-point.glb", position: [0, 1, 0], scale: ROOF_SCALE },
     ],
-    fit: 0.75,
-    scaleY: 0.8,
+    fit: 0.88,
+    scaleY: 0.68,
     randomRotate: "quarter",
   },
   // Marble yard: low flat-roofed cutting shed, rough blocks and a finished
@@ -238,7 +282,7 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "rock-small.glb", position: [-0.3, 0, 0.7], scale: 0.7 },
       { file: TOWN + "pillar-stone.glb", position: [0.65, 0, -0.35], scale: 0.6 },
     ],
-    fit: 0.8,
+    fit: 0.88,
     randomRotate: "quarter",
   },
   // Long tavern hall: two bays under one continuous gable roof (3x2 footprint).
@@ -250,8 +294,8 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "roof-gable-end.glb", position: [0.5, 1, 0], scale: ROOF_SCALE },
       { file: TOWN + "banner-red.glb", position: [0.5, 0.25, 0] },
     ],
-    fit: 0.85,
-    scaleY: 0.85, // ~16 ft ridge — a public hall, half a notch above the cottage
+    fit: 0.92,
+    scaleY: 0.79, // ~16 ft ridge — a public hall, half a notch above the cottage
     stretch: true,
   },
   bakery: {
@@ -260,8 +304,8 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: TOWN + "roof-gable.glb", position: [0, 1, 0], scale: ROOF_SCALE },
       { file: TOWN + "chimney.glb", position: [0, 0.55, 0] },
     ],
-    fit: 0.75,
-    scaleY: 0.66, // ridge matches the cottage; chimney tips out at ~16 ft
+    fit: 0.88,
+    scaleY: 0.56, // ridge matches the cottage; chimney tips out at ~16 ft
     randomRotate: "quarter",
   },
   // Open market square: stalls sit small on a paved pad (the paving sets the
@@ -269,10 +313,12 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
   market: {
     pad: 4,
     parts: [
-      { file: TOWN + "stall-red.glb", position: [-1, 0.02, -1], rotationY: Math.PI, scale: 0.8 },
-      { file: TOWN + "stall-green.glb", position: [1, 0.02, -1], rotationY: Math.PI, scale: 0.8 },
-      { file: TOWN + "stall.glb", position: [-1, 0.02, 1], scale: 0.8 },
-      { file: TOWN + "cart.glb", position: [1, 0.02, 1], rotationY: Math.PI / 2, scale: 0.8 },
+      // Keep every piece inside the pad's ±2 half-extent — anything poking out
+      // grows the measured bounding box and shrinks/shifts the pad off the tile.
+      { file: TOWN + "stall-red.glb", position: [-1, 0.02, -1], rotationY: Math.PI, scale: 1 },
+      { file: TOWN + "stall-green.glb", position: [1, 0.02, -1], rotationY: Math.PI, scale: 1 },
+      { file: TOWN + "stall.glb", position: [-1, 0.02, 1], scale: 1 },
+      { file: TOWN + "cart.glb", position: [1, 0.02, 1], rotationY: Math.PI / 2, scale: 1 },
       { file: TOWN + "lantern.glb", position: [0, 0.02, 0], scale: 0.8 },
     ],
     fit: 1,
@@ -329,6 +375,56 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
     fit: 0.8,
     randomRotate: "free",
     randomScale: [0.85, 1.15],
+  },
+  cypress: {
+    variants: CYPRESS_VARIANTS,
+    fit: 0.4,
+    scaleY: CYPRESS_STRETCH,
+    randomRotate: "free",
+    randomScale: [0.9, 1.2],
+  },
+  // Vine rows: tree_default canopies stretched into long low hedges; the whole
+  // prefab sinks by the foliage-bottom fraction (0.8/1.71) to bury the trunks.
+  vineyard: {
+    parts: VINEYARD_PARTS,
+    fit: 0.92,
+  },
+  fountain: {
+    parts: [{ file: TOWN + "fountain-round-detail.glb" }],
+    fit: 0.85,
+  },
+  colonnade: {
+    parts: [
+      { file: TOWN + "pillar-stone.glb", position: [-2, 0, 0], scale: [1.4, 1.15, 1.4] },
+      { file: TOWN + "pillar-stone.glb", position: [-1, 0, 0], scale: [1.4, 1.15, 1.4] },
+      { file: TOWN + "pillar-stone.glb", position: [0, 0, 0], scale: [1.4, 1.15, 1.4] },
+      { file: TOWN + "pillar-stone.glb", position: [1, 0, 0], scale: [1.4, 1.15, 1.4] },
+      { file: TOWN + "pillar-stone.glb", position: [2, 0, 0], scale: [1.4, 1.15, 1.4] },
+      // Stone architrave: a wall-block squashed to a slab (roof-flat is roof-tinted).
+      { file: TOWN + "wall-block.glb", position: [0, 1.15, 0], scale: [4.6, 0.1, 0.5] },
+    ],
+    fit: 0.95,
+  },
+  obelisk: {
+    parts: [
+      { file: TOWN + "pillar-stone.glb", scale: [5.5, 0.2, 5.5] },
+      { file: TOWN + "pillar-stone.glb", position: [0, 0.2, 0], scale: [3.8, 0.15, 3.8] },
+      { file: TOWN + "wall-block.glb", position: [0, 0.35, 0], scale: [0.26, 1.5, 0.26] },
+      { file: TOWN + "roof-point.glb", position: [0, 1.85, 0], scale: [0.24, 0.7, 0.24] },
+    ],
+    fit: 0.85,
+  },
+  olive_grove: {
+    parts: [
+      { file: NATURE + "tree_fat.glb", position: [-1.8, 0, -1.4], scale: 1.1 },
+      { file: NATURE + "tree_default.glb", position: [0.2, 0, -1.8], scale: 0.95 },
+      { file: NATURE + "tree_oak.glb", position: [1.8, 0, -1.2] },
+      { file: NATURE + "tree_default.glb", position: [-1.4, 0, 1.5] },
+      { file: NATURE + "tree_fat.glb", position: [0.6, 0, 1.2], scale: 1.05 },
+      { file: NATURE + "tree_oak.glb", position: [1.9, 0, 1.8], scale: 0.9 },
+    ],
+    fit: 0.95,
+    randomRotate: "quarter",
   },
 };
 
@@ -415,7 +511,7 @@ async function getContainer(file: string, scene: Scene) {
 
 /** Load every manifest + scatter model up front so instantiation can stay synchronous. */
 export async function preloadModels(scene: Scene) {
-  const files = new Set<string>([...SCATTER_CYPRESS, ...SCATTER_OLIVE]);
+  const files = new Set<string>(SCATTER_OLIVE);
   for (const def of Object.values(MODEL_MANIFEST)) {
     for (const part of def.parts ?? []) files.add(part.file);
     for (const part of def.variants ?? []) files.add(part.file);
@@ -462,6 +558,10 @@ export type BuildingModel = {
   meshes: AbstractMesh[];
   /** World-space height after fitting, for markers/labels. */
   height: number;
+  /** Add to the tile-center position: recenters prefabs whose composed
+   * bounding box isn't symmetric around the parts' origin (e.g. palazzo). */
+  offsetX: number;
+  offsetZ: number;
 };
 
 /**
@@ -484,7 +584,12 @@ export function instantiateBuilding(
 
   const root = new TransformNode(`model-${buildingId}-${gridPos.x}-${gridPos.y}`, scene);
   const meshes: AbstractMesh[] = [];
-  for (const part of parts) meshes.push(...instantiatePart(part, root, scene));
+  const buried = new Set<AbstractMesh>();
+  for (const part of parts) {
+    const partMeshes = instantiatePart(part, root, scene);
+    if (part.buried) for (const mesh of partMeshes) buried.add(mesh);
+    meshes.push(...partMeshes);
+  }
   if (meshes.length === 0) {
     root.dispose();
     return null;
@@ -517,13 +622,22 @@ export function instantiateBuilding(
 
   // Fit the composed bounding box into the footprint, base at y=0.
   root.computeWorldMatrix(true);
-  const { min, max } = root.getHierarchyBoundingVectors(true);
+  const { min, max } = root.getHierarchyBoundingVectors(
+    true,
+    buried.size > 0 ? (mesh) => !buried.has(mesh as AbstractMesh) : null
+  );
   const extentX = max.x - min.x;
   const extentZ = max.z - min.z;
   const fit = def.fit ?? 0.9;
   const scaleX = (footprint.width * CELL_SIZE * fit) / extentX || 1;
   const scaleZ = (footprint.depth * CELL_SIZE * fit) / extentZ || 1;
   const sy = def.scaleY ?? 1;
+
+  // Recenter horizontally: the measured bounding box isn't necessarily
+  // symmetric around the parts' origin, and the caller positions the root at
+  // the tile center.
+  const centerX = (min.x + max.x) / 2;
+  const centerZ = (min.z + max.z) / 2;
 
   if (def.stretch) {
     // Fill both footprint axes. Extents are world-space (post-rotation), but
@@ -532,7 +646,13 @@ export function instantiateBuilding(
     const odd = Math.round(root.rotation.y / (Math.PI / 2)) % 2 !== 0;
     root.scaling.set(odd ? scaleZ : scaleX, scaleY, odd ? scaleX : scaleZ);
     root.position.y = -min.y * scaleY;
-    return { root, meshes, height: (max.y - min.y) * scaleY };
+    return {
+      root,
+      meshes,
+      height: (max.y - min.y) * scaleY,
+      offsetX: -centerX * scaleX,
+      offsetZ: -centerZ * scaleZ,
+    };
   }
 
   let scale = Math.min(scaleX, scaleZ);
@@ -541,9 +661,17 @@ export function instantiateBuilding(
     scale *= lo + (hash / 4096) * (hi - lo);
   }
   root.scaling.set(scale, scale * sy, scale);
-  root.position.y = -min.y * scale * sy;
+  const height = (max.y - min.y) * scale * sy;
+  const sink = (parts[0].sinkY ?? def.sinkY ?? 0) * height;
+  root.position.y = -min.y * scale * sy - sink;
 
-  return { root, meshes, height: (max.y - min.y) * scale * sy };
+  return {
+    root,
+    meshes,
+    height: height - sink,
+    offsetX: -centerX * scale,
+    offsetZ: -centerZ * scale,
+  };
 }
 
 export function setBuildingActive(model: BuildingModel, active: boolean) {
@@ -560,7 +688,6 @@ export function overrideMaterials(model: BuildingModel, material: Material) {
   }
 }
 
-const SCATTER_CYPRESS = [NATURE + "tree_pineTallA.glb", NATURE + "tree_pineTallB.glb"];
 const SCATTER_OLIVE = [NATURE + "tree_default.glb", NATURE + "tree_fat.glb", NATURE + "tree_oak.glb"];
 const ENV_TREE_COUNT = 120;
 const ENV_TREE_CLEARANCE = 4;
@@ -582,14 +709,26 @@ export function scatterEnvironmentTrees(
     const x = Math.cos(angle) * dist;
     const z = Math.sin(angle) * dist;
     if (Math.max(Math.abs(x), Math.abs(z)) < minDistance) continue;
-    const files = rand() < 0.4 ? SCATTER_CYPRESS : SCATTER_OLIVE;
-    const container = containers.get(files[Math.floor(rand() * files.length)]);
+    const isCypress = rand() < 0.4;
+    const variant = isCypress
+      ? CYPRESS_VARIANTS[Math.floor(rand() * CYPRESS_VARIANTS.length)]
+      : { file: SCATTER_OLIVE[Math.floor(rand() * SCATTER_OLIVE.length)], sinkY: 0 };
+    const container = containers.get(variant.file);
     if (!container) continue;
     const entries = container.instantiateModelsToScene((name) => name, false);
     for (const node of entries.rootNodes) {
       const root = node as TransformNode;
-      root.position.set(x, heightAt(x, z) - 0.1, z);
-      root.scaling.setAll(1.4 + rand() * 1.3);
+      const scale = 1.4 + rand() * 1.3;
+      root.scaling.setAll(scale);
+      let y = heightAt(x, z) - 0.1;
+      if (isCypress) {
+        root.scaling.y *= CYPRESS_STRETCH;
+        // Bury the bare trunk, matching the placed cypress prefab.
+        root.computeWorldMatrix(true);
+        const { min, max } = root.getHierarchyBoundingVectors(true);
+        y -= (variant.sinkY ?? 0) * (max.y - min.y);
+      }
+      root.position.set(x, y, z);
       root.rotationQuaternion = null;
       root.rotation.y = rand() * Math.PI * 2;
       for (const mesh of root.getChildMeshes(false)) mesh.isPickable = false;

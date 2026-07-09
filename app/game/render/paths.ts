@@ -32,20 +32,22 @@ function mulberry32(seed: number) {
 
 function drawPaving(
   ctx: CanvasRenderingContext2D,
-  size: number,
+  width: number,
+  height: number,
   n: number,
   grout: string,
   tones: string[]
 ) {
   ctx.fillStyle = grout;
-  ctx.fillRect(0, 0, size, size);
+  ctx.fillRect(0, 0, width, height);
   const rand = mulberry32(n * 31 + 5);
   // 2:1 slabs in a running bond (odd courses offset half a slab); the extra
   // leading stone covers the wrapped edge so tiles still join seamlessly.
-  const w = size / n;
+  const w = width / n;
   const h = w / 2;
+  const rows = Math.ceil(height / h);
   const gap = Math.max(0.75, w / 16);
-  for (let y = 0; y < n * 2; y += 1) {
+  for (let y = 0; y < rows; y += 1) {
     const offset = y % 2 ? w / 2 : 0;
     for (let x = -1; x < n; x += 1) {
       const tone = Color3.FromHexString(tones[Math.floor(rand() * tones.length)]);
@@ -59,9 +61,17 @@ function drawPaving(
 const padMaterials = new Map<number, StandardMaterial>();
 let roadMaterial: StandardMaterial | null = null;
 
-function pavingMaterial(name: string, size: number, n: number, grout: string, tones: string[], scene: Scene) {
-  const tex = new DynamicTexture(`${name}-tex`, { width: size, height: size }, scene, true);
-  drawPaving(tex.getContext() as CanvasRenderingContext2D, size, n, grout, tones);
+function pavingMaterial(
+  name: string,
+  width: number,
+  height: number,
+  n: number,
+  grout: string,
+  tones: string[],
+  scene: Scene
+) {
+  const tex = new DynamicTexture(`${name}-tex`, { width, height }, scene, true);
+  drawPaving(tex.getContext() as CanvasRenderingContext2D, width, height, n, grout, tones);
   tex.update();
   const mat = new StandardMaterial(`${name}-mat`, scene);
   mat.specularColor = Color3.Black();
@@ -74,23 +84,45 @@ export function getPadMaterial(cells: number, scene: Scene) {
   let mat = padMaterials.get(cells);
   if (mat) return mat;
   const size = Math.min(1024, cells * 128); // room for the 5×5 stones per cell
-  mat = pavingMaterial(`pad-${cells}`, size, cells * STONES_PER_CELL, GROUT, STONE_TONES, scene);
+  mat = pavingMaterial(`pad-${cells}`, size, size, cells * STONES_PER_CELL, GROUT, STONE_TONES, scene);
   padMaterials.set(cells, mat);
+  return mat;
+}
+
+const apronMaterials = new Map<string, StandardMaterial>();
+
+/** Flagstone paving for a building's full w×d-cell footprint apron (cached per size). */
+export function getApronMaterial(widthCells: number, depthCells: number, scene: Scene) {
+  const key = `${widthCells}x${depthCells}`;
+  let mat = apronMaterials.get(key);
+  if (mat) return mat;
+  const px = Math.min(128, Math.floor(1024 / Math.max(widthCells, depthCells)));
+  mat = pavingMaterial(
+    `apron-${key}`,
+    widthCells * px,
+    depthCells * px,
+    widthCells * STONES_PER_CELL,
+    GROUT,
+    STONE_TONES,
+    scene
+  );
+  apronMaterials.set(key, mat);
   return mat;
 }
 
 /** Full-tile street paving — darker limestone, larger slabs than the plazas. */
 export function getRoadMaterial(scene: Scene) {
-  roadMaterial ??= pavingMaterial("road", 128, ROAD_STONES_PER_CELL, ROAD_GROUT, ROAD_TONES, scene);
+  roadMaterial ??= pavingMaterial("road", 128, 128, ROAD_STONES_PER_CELL, ROAD_GROUT, ROAD_TONES, scene);
   return roadMaterial;
 }
 
 export function disposePathMaterials() {
-  for (const mat of padMaterials.values()) {
+  for (const mat of [...padMaterials.values(), ...apronMaterials.values()]) {
     mat.diffuseTexture?.dispose();
     mat.dispose();
   }
   padMaterials.clear();
+  apronMaterials.clear();
   roadMaterial?.diffuseTexture?.dispose();
   roadMaterial?.dispose();
   roadMaterial = null;

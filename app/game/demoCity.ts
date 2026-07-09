@@ -43,6 +43,10 @@ const LAYOUT: Array<[number, number, BuildingId, number?]> = [
   ...road(14, 30, 14, 37, "path"),
   [8, 16, "tree"], [20, 16, "tree"], [6, 26, "tree"], [20, 34, "tree"],
   [44, 16, "tree"], [38, 12, "tree"], [32, 40, "tree"], [22, 40, "tree"],
+  [10, 16, "cypress"], [12, 16, "cypress"], [42, 12, "cypress"], [24, 40, "cypress"],
+  [8, 46, "vineyard"], [18, 46, "fountain"], [24, 46, "colonnade"], [33, 46, "obelisk"],
+  [38, 44, "olive_grove"], [14, 50, "vineyard", 1],
+  [4, 10, "colonnade"], // overlaps the palazzo's left wing (decoration overlap demo)
 ];
 
 export function seedDemoCity() {
