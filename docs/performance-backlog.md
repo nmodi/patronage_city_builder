@@ -36,12 +36,29 @@ is acceptable. If the grid grows, add explicit changed-cell information to the
 store actions and profile the tick loop, active mesh count, shadow draw calls,
 and GPU frame time on target hardware.
 
-## Dirt-path overlay cost
+## Dirt-path overlay refinements
 
-The original neighbor-aware dirt paths use a 2048² mipmapped dynamic texture
-and redraw/upload the full canvas whenever the map layout changes. This is
-retained intentionally for its rounded corners and grass-edge treatment.
+The rounded dirt paths now use lazy 20×20-cell chunks (a 4×4 grid of 512²
+mipmapped dynamic textures). Only chunks around a dirt/occupancy topology
+change redraw; a one-cell source border keeps inside fillets continuous across
+chunk boundaries. `queueSync` also tracks dirt and occupied cells incrementally
+instead of scanning and sorting the full tile map for every layout update.
 
-If it becomes a measurable placement hitch, preserve the art treatment while
-adding dirty-rectangle updates or chunked overlays; do not replace it with
-plain tiled quads without an explicit visual decision.
+This preserves the rounded corners, grass-edge treatment, and texture scale
+while reducing a typical placement update from one 2048² upload to one 512²
+upload (or up to four chunks at a chunk boundary).
+
+Further refinement, only if profiling shows a remaining placement hitch:
+
+- Measure canvas time, texture-upload time, and active chunk draw calls on
+  target hardware before changing the approach again.
+- Consider a single custom shader that reads a small dirt/occupancy topology
+  mask and generates the same rounded silhouette on the GPU. It would reduce
+  update bandwidth further, but adds shader complexity and visual-regression
+  risk.
+- Add camera culling for enabled dirt chunks if map extent grows beyond the
+  current 80×80 grid.
+
+Do not replace the overlay with plain tiled quads without an explicit visual
+decision. Canvas dirty rectangles alone are not useful here: Babylon uploads
+the complete dynamic texture and regenerates its mipmaps on each update.

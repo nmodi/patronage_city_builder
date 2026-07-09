@@ -119,6 +119,9 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
   let renderedTiles: Record<string, Tile> = {};
   const pendingOrigins = new Set<string>();
   const extensionOrigins = new Set<string>();
+  // Kept incrementally so dirt-path redraws don't rescan and sort the entire map.
+  const dirtCells = new Set<string>();
+  const occupiedCells = new Set<string>();
 
   const gridLines = createGridLines(scene);
 
@@ -330,6 +333,7 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
   /** Queue only changed origins; callers spread construction over animation frames. */
   function queueSync(tiles: Record<string, Tile>) {
     const changedKeys = new Set<string>();
+    const topologyChangedKeys = new Set<string>();
     for (const [key, tile] of Object.entries(renderedTiles)) {
       if (tiles[key] !== tile) changedKeys.add(key);
     }
@@ -342,6 +346,17 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
       const previous = renderedTiles[key];
       const next = tiles[key];
       updateRoad(key, previous, next);
+      const wasOccupied = previous != null;
+      const isOccupied = next != null;
+      const wasDirt = previous?.buildingId === "dirt_path";
+      const isDirt = next?.buildingId === "dirt_path";
+      if (wasOccupied !== isOccupied || wasDirt !== isDirt) {
+        topologyChangedKeys.add(key);
+        if (isOccupied) occupiedCells.add(key);
+        else occupiedCells.delete(key);
+        if (isDirt) dirtCells.add(key);
+        else dirtCells.delete(key);
+      }
       if (previous && previous.type !== "road") {
         pendingOrigins.add(`${previous.origin.x},${previous.origin.y}`);
       }
@@ -355,15 +370,7 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     renderedTiles = tiles;
     flushRoadBatch(pavedRoads);
 
-    // Keep the original neighbor-aware dirt treatment. This intentionally scans
-    // and redraws the full overlay whenever the layout changes (see backlog).
-    const dirt = new Set<string>();
-    const occupied = new Set<string>();
-    for (const [key, tile] of Object.entries(tiles)) {
-      occupied.add(key);
-      if (tile.buildingId === "dirt_path") dirt.add(key);
-    }
-    dirtOverlay.update(dirt, occupied);
+    dirtOverlay.update(dirtCells, occupiedCells, topologyChangedKeys);
   }
 
   /** Builds at most `budget` entries. Returns true when the pending work is drained. */
