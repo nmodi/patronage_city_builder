@@ -335,16 +335,25 @@ export function createDirtPathOverlay(scene: Scene) {
     chunk.tex.update();
   }
 
+  // Chunk redraws are queued here and drained via process() a frame-budgeted
+  // step at a time — a big initial map otherwise rasterizes and uploads every
+  // chunk synchronously before first paint. The sets are the caller's live
+  // Sets, mutated in place, so drain-time reads see the current topology.
+  const pendingChunks = new Set<string>();
+  let latestDirt: Set<string> = new Set();
+  let latestOccupied: Set<string> = new Set();
+
   /** dirt = "x,y" cells holding a dirt path; occupied = every tile-holding
    * cell — rounding is suppressed against any occupied cell so junctions with
    * paved roads and building fronts stay flush. */
   function update(dirt: Set<string>, occupied: Set<string>, changedKeys: ReadonlySet<string>) {
+    latestDirt = dirt;
+    latestOccupied = occupied;
     if (changedKeys.size === 0) return;
 
     // A topology change can affect a dirt cell up to one cell away, and a
     // fillet can then cross one more chunk boundary. Marking this compact 5×5
     // neighborhood covers both cases and touches at most four chunks.
-    const dirtyChunks = new Set<string>();
     for (const key of changedKeys) {
       const [gx, gy] = key.split(",").map(Number);
       for (let dy = -2; dy <= 2; dy += 1) {
@@ -352,18 +361,28 @@ export function createDirtPathOverlay(scene: Scene) {
           const x = gx + dx;
           const y = gy + dy;
           if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) continue;
-          dirtyChunks.add(chunkKey(Math.floor(x / CHUNK_CELLS), Math.floor(y / CHUNK_CELLS)));
+          pendingChunks.add(chunkKey(Math.floor(x / CHUNK_CELLS), Math.floor(y / CHUNK_CELLS)));
         }
       }
     }
-    for (const key of dirtyChunks) {
+  }
+
+  /** Redraw up to `budget` queued chunks. Returns true when the queue is drained. */
+  function process(budget = 1) {
+    let drawn = 0;
+    for (const key of pendingChunks) {
+      if (drawn >= budget) break;
+      pendingChunks.delete(key);
       const [chunkX, chunkY] = key.split(",").map(Number);
       const chunk = chunks.get(key);
       // Don't allocate transparent chunks for unrelated buildings. Existing
       // chunks still repaint so removing a nearby path clears stale pixels.
-      if (chunk) redrawChunk(chunk, dirt, occupied);
-      else if (hasDirtNearChunk(chunkX, chunkY, dirt)) redrawChunk(getChunk(chunkX, chunkY), dirt, occupied);
+      if (chunk) redrawChunk(chunk, latestDirt, latestOccupied);
+      else if (hasDirtNearChunk(chunkX, chunkY, latestDirt)) redrawChunk(getChunk(chunkX, chunkY), latestDirt, latestOccupied);
+      else continue; // skipped chunks don't consume budget
+      drawn += 1;
     }
+    return pendingChunks.size === 0;
   }
 
   function dispose() {
@@ -375,7 +394,7 @@ export function createDirtPathOverlay(scene: Scene) {
     chunks.clear();
   }
 
-  return { update, dispose };
+  return { update, process, dispose };
 }
 
 export function disposePathMaterials() {

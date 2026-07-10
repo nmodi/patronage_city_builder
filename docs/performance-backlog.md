@@ -64,6 +64,11 @@ the chunk count derives from `GRID_SIZE`, and chunks stay lazily allocated.
 Chunk grounds are ordinary meshes, so Babylon frustum-culls off-screen ones —
 no extra camera culling needed.
 
+Chunk redraws are frame-budgeted (July 2026): `update` only queues dirty
+chunks; `processSync` drains one per frame through the same rAF loop that
+streams buildings. Fixed the page-load stall where the initial sync
+rasterized + uploaded every dirt chunk synchronously before first paint.
+
 Only if profiling shows a remaining placement hitch: consider a custom shader
 reading a dirt/occupancy topology mask (less upload bandwidth, more shader
 complexity and visual-regression risk). Do not replace the overlay with plain

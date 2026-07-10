@@ -408,7 +408,10 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     }
     // Instance matrices changed → the on-demand shadow map needs a render.
     if (batcher.flush()) refreshShadows();
-    return pendingOrigins.size === 0;
+    // One dirt chunk per frame: each is a 512² canvas raster + GPU upload, too
+    // heavy to run all at once during the initial map sync.
+    const dirtDrained = dirtOverlay.process(1);
+    return pendingOrigins.size === 0 && dirtDrained;
   }
 
   /** Swap placeholder boxes for just-loaded model types without rebuilding the map. */

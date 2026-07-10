@@ -652,24 +652,38 @@ function addModelFiles(files: Set<string>, def: ModelDef | undefined) {
 
 // glTF parsing and material conversion run on the main thread. Keep only a few
 // files in flight so loading a save does not turn into one long completion task.
-async function preloadFiles(files: Iterable<string>, scene: Scene) {
+async function preloadFiles(files: Iterable<string>, scene: Scene, onFileLoaded?: () => void) {
   const queue = [...new Set(files)];
   const workers = Math.min(4, queue.length);
   await Promise.all(
     Array.from({ length: workers }, async () => {
       while (queue.length > 0) {
         const file = queue.pop();
-        if (file) await getContainer(file, scene);
+        if (file) {
+          await getContainer(file, scene);
+          onFileLoaded?.();
+        }
       }
     })
   );
 }
 
-/** Load only model files referenced by placed/selected building types. */
-export async function preloadBuildingModels(buildingIds: Iterable<BuildingId>, scene: Scene) {
+/** Distinct model files a set of building types references (loading-progress denominator). */
+export function countModelFiles(buildingIds: Iterable<BuildingId>) {
   const files = new Set<string>();
   for (const buildingId of buildingIds) addModelFiles(files, MODEL_MANIFEST[buildingId]);
-  await preloadFiles(files, scene);
+  return files.size;
+}
+
+/** Load only model files referenced by placed/selected building types. */
+export async function preloadBuildingModels(
+  buildingIds: Iterable<BuildingId>,
+  scene: Scene,
+  onFileLoaded?: () => void
+) {
+  const files = new Set<string>();
+  for (const buildingId of buildingIds) addModelFiles(files, MODEL_MANIFEST[buildingId]);
+  await preloadFiles(files, scene, onFileLoaded);
 }
 
 /** Wilderness is decorative, so it deliberately streams after the playable city. */

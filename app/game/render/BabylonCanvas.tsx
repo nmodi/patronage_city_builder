@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
@@ -13,6 +13,7 @@ import { Scene } from "@babylonjs/core/scene";
 import type { BuildingId } from "~/game/buildings";
 import { useGameStore } from "~/stores/useGameStore";
 import {
+  countModelFiles,
   disposeAssetLibrary,
   preloadBuildingModels,
   preloadEnvironmentModels,
@@ -28,6 +29,16 @@ const ROTATE_SPEED = 1.5; // radians per second
 
 export function BabylonCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [loadPhase, setLoadPhase] = useState<"loading" | "fading" | "hidden">("loading");
+
+  // Unmount on a timer rather than transitionend — opacity transitions run on
+  // the compositor and their end event is unreliable in hidden/headless tabs.
+  useEffect(() => {
+    if (loadPhase !== "fading") return;
+    const timer = window.setTimeout(() => setLoadPhase("hidden"), 600);
+    return () => window.clearTimeout(timer);
+  }, [loadPhase]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -108,12 +119,44 @@ export function BabylonCanvas() {
     const pendingModelIds = new Set<BuildingId>();
     let modelLoadRunning = false;
 
+    // Loading-screen bookkeeping. The bar tracks model files (the dominant wall
+    // time); tile geometry only gates the hide. The gate waits for store
+    // hydration because the effect's initial queueMap runs before game.tsx
+    // calls rehydrate() and may see a near-empty map that finishes instantly.
+    // Demo mode never rehydrates — its tiles are seeded before mount.
+    let filesTotal = 0;
+    let filesLoaded = 0;
+    let loadFinished = false;
+    let hydrated =
+      new URLSearchParams(window.location.search).has("demo") ||
+      useGameStore.persist.hasHydrated();
+
+    function updateLoadProgress() {
+      if (loadFinished || disposed) return;
+      setLoadProgress(filesTotal === 0 ? 0 : filesLoaded / filesTotal);
+    }
+
+    function maybeFinishLoading() {
+      if (loadFinished || disposed) return;
+      if (hydrated && tileFrame == null && pendingModelIds.size === 0 && !modelLoadRunning) {
+        loadFinished = true;
+        setLoadProgress(1);
+        setLoadPhase("fading");
+      }
+    }
+
+    const offHydration = useGameStore.persist.onFinishHydration(() => {
+      hydrated = true;
+      maybeFinishLoading();
+    });
+
     // Construct a handful of origin entries per frame. A large persisted city
     // becomes visible immediately rather than blocking the first canvas paint.
     function flushTileWork() {
       if (disposed) return;
       if (tileRenderer.processSync(16)) {
         tileFrame = null;
+        maybeFinishLoading();
       } else {
         tileFrame = window.requestAnimationFrame(flushTileWork);
       }
@@ -135,7 +178,12 @@ export function BabylonCanvas() {
         const ids = new Set(pendingModelIds);
         pendingModelIds.clear();
         try {
-          await preloadBuildingModels(ids, scene);
+          filesTotal += countModelFiles(ids);
+          updateLoadProgress();
+          await preloadBuildingModels(ids, scene, () => {
+            filesLoaded += 1;
+            updateLoadProgress();
+          });
           if (disposed) return;
           // Only entries of the newly loaded types are upgraded from boxes.
           tileRenderer.upgradeModels(ids);
@@ -146,6 +194,7 @@ export function BabylonCanvas() {
         }
       }
       modelLoadRunning = false;
+      maybeFinishLoading();
     }
 
     function queueMap(tiles: ReturnType<typeof useGameStore.getState>["map"]["tiles"]) {
@@ -242,6 +291,7 @@ export function BabylonCanvas() {
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
       window.removeEventListener("resize", handleResize);
+      offHydration();
       unsubscribe();
       placementController.dispose();
       citizens.dispose();
@@ -259,6 +309,22 @@ export function BabylonCanvas() {
         className="w-full h-full outline-none touch-none"
         style={{ backgroundColor: "#e9c98f" }}
       />
+      {loadPhase !== "hidden" && (
+        <div
+          className={`absolute inset-0 z-[70] flex flex-col items-center justify-center gap-5 bg-[#e9c98f] transition-opacity duration-500 ${
+            loadPhase === "fading" ? "opacity-0 pointer-events-none" : ""
+          }`}
+        >
+          <h1 className="font-serif text-5xl tracking-wide text-[#6b3f22]">Patronage</h1>
+          <div className="h-2 w-64 overflow-hidden rounded-full bg-[#c9a06a]">
+            <div
+              className="h-full rounded-full bg-[#b3542e] transition-[width] duration-300"
+              style={{ width: `${Math.round(loadProgress * 100)}%` }}
+            />
+          </div>
+          <p className="text-sm text-[#8a6a45]">Preparing the city…</p>
+        </div>
+      )}
     </div>
   );
 }
