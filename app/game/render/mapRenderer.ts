@@ -284,7 +284,9 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     );
     if (placed) {
       let smoke: SmokePlume | null = null;
-      if (placed.chimneyTop) {
+      // Smoke is exclusive to production buildings — a chimney on a civic
+      // prefab (palazzo) is just architecture.
+      if (placed.chimneyTop && (metadata.type === "artist" || tile.buildingId === "bakery")) {
         const top = placed.chimneyTop;
         smoke = createSmokePlume(scene, new Vector3(top.x - 0.08, top.y, top.z - 0.08));
         smoke.setActive(tile.isActive);

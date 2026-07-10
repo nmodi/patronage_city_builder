@@ -24,6 +24,7 @@ Don't trial-and-error with screenshots. Parse the GLB accessor min/max (and raw 
 
 ## Pieces that don't read as what they are
 
+- `roof-window.glb` is a mono-pitch half-roof segment (ridge along Z at x=+0.5, dormer box on the −X slope). Floated over a gable slope as a dormer overlay it shows its open top edge/underside over the ridge from behind — unusable. Kitbash dormers as a mini `wall-block` + cross-ridge mini `roof-gable` buried into the slope instead (see the painter workshop).
 - `plant_bush*` models look like **perched birds** at hill distance (splayed fronds). Environment scatter uses small sunken tree canopies (`scale ~0.5, sinkY 0.4`) as shrubs instead; plant models are placeable-only.
 - `wall-half.glb` has a painted red band — reads as a barrier bar, not a stone wall. Low walls are kitbashed from `wall-block` scaled to a slab (`[2, 0.28, 0.14]`); heavily squashed blocks show the texture's terracotta corner quoins on narrow posts, which happens to read as trim.
 - Thin flat pieces (`crops_dirtRow`) sunk even 0.15 below the analytic `hillHeight` vanish under the faceted terrain — place flat ground pieces at drop 0 and pre-filter for low slope.
@@ -34,6 +35,7 @@ Don't trial-and-error with screenshots. Parse the GLB accessor min/max (and raw 
 - Nature Kit pieces are untextured flat PBR colors with **per-file material names**: trees `leafsGreen`/`woodBark` (pines: `leafsDark`/`woodBarkDark`), rocks `dirt` (body) + `grass` (moss) + sometimes `_defaultMat`, fences `wood`/`woodDark`, bushes a single `grass`. Tints keyed in `MATERIAL_TINTS`.
 - glTF loads PBRMaterial, which renders near-black without IBL — assetLibrary converts everything to StandardMaterial. Use a fresh gamma-space `Texture(url, scene, false, false)` (the loader's own albedo textures are sRGB buffers → too dark on StandardMaterial) and set `twoSidedLighting = true` (Kenney meshes are double-sided; the visible side is often the backface).
 - Inactive desaturation = a second material set from a pre-generated `colormap-desat.png` (flat-color nature materials gray-lerp instead).
+- Per-building tints: `Part.tint` ("facade"/"roof" resolve from category palettes by position hash; other strings index `TINT_COLORS` directly, e.g. religious "mint"). The tint is a diffuse multiply on a cloned material pair and joins the batch mesh key. **Door/window/arch pieces are full-face panels** — a face with a window shows the panel, not the wall behind, so panels must carry the same tint as their wall or one building shows two wall colors.
 
 ## Design rules
 
