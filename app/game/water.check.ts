@@ -53,6 +53,34 @@ function checkInvariants(seed: string) {
   assert.deepEqual([...again.cells].sort(), [...w.cells].sort(), `${seed}: not deterministic`);
   assert.equal(again.archetype, w.archetype);
 
+  if (w.archetype === "dry") {
+    assert.equal(w.cells.size, 0, `${seed}: dry map has water cells`);
+    assert.equal(w.riverDistance(0, 0), Infinity);
+    assert.equal(w.seaDistance(0, 0), -Infinity);
+    assert.equal(w.coastEdge, undefined);
+    return;
+  }
+
+  if (w.archetype === "scenic-river" || w.archetype === "scenic-coast") {
+    // Scenery only: no buildable cell is water, and the water keeps a real
+    // margin from the grid so not even a bank ribbon reaches a cell.
+    assert.equal(w.cells.size, 0, `${seed}: scenic water touches the grid`);
+    let minRiver = Infinity;
+    let maxSea = -Infinity;
+    for (let gy = 0; gy < GRID_SIZE; gy += 1) {
+      for (let gx = 0; gx < GRID_SIZE; gx += 1) {
+        const x = cellCenter(gx);
+        const z = cellCenter(gy);
+        minRiver = Math.min(minRiver, w.riverDistance(x, z));
+        maxSea = Math.max(maxSea, w.seaDistance(x, z));
+      }
+    }
+    assert.ok(minRiver > 0.5, `${seed}: scenic river only ${minRiver.toFixed(2)} wu from a cell`);
+    assert.ok(maxSea < -0.5, `${seed}: scenic sea only ${(-maxSea).toFixed(2)} wu from a cell`);
+    assert.equal(w.coastEdge != null, w.archetype === "scenic-coast", `${seed}: coastEdge mismatch`);
+    return;
+  }
+
   // All cells in-bounds and consistent with the distance fields.
   for (const key of w.cells) {
     const [gx, gy] = key.split(",").map(Number);
@@ -125,14 +153,18 @@ function checkInvariants(seed: string) {
   }
 }
 
-// A spread of seeds exercises both archetypes, all axes/signs, and the clamps.
+// A spread of seeds exercises every archetype, all axes/signs, and the clamps.
 const archetypes = new Set<string>();
-for (let i = 0; i < 120; i += 1) {
+for (let i = 0; i < 200; i += 1) {
   const seed = `check-${i.toString(36)}`;
   checkInvariants(seed);
   archetypes.add(generateWater(seed).archetype);
 }
-assert.deepEqual([...archetypes].sort(), ["coastal", "inland"], "both archetypes should occur");
+assert.deepEqual(
+  [...archetypes].sort(),
+  ["coastal", "dry", "inland", "scenic-coast", "scenic-river"],
+  "all five archetypes should occur"
+);
 
 // Memoized accessors.
 assert.equal(getWater(null), null);

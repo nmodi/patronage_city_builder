@@ -25,12 +25,24 @@ const EDGE_MARGIN = 5;
  * could visually straddle. */
 const MIN_RIVER_WIDTH = 1.2;
 
-export type WaterArchetype = "inland" | "coastal";
+/**
+ * Map archetypes, rolled from the run seed:
+ * - "dry"          — no water anywhere (the classic plain).
+ * - "inland"       — a river meanders through the buildable grid.
+ * - "coastal"      — a sea clips a waterfront strip off one grid edge; the
+ *                    river flows through town into it at an estuary mouth.
+ * - "scenic-river" — a river runs through the countryside beyond the grid;
+ *                    pure scenery, no buildable cell is ever water.
+ * - "scenic-coast" — sea and estuary sit entirely beyond the grid edge;
+ *                    scenery only, like scenic-river.
+ */
+export type WaterArchetype = "dry" | "inland" | "coastal" | "scenic-river" | "scenic-coast";
 export type CoastEdge = "north" | "south" | "east" | "west";
 
 export interface WaterBody {
   archetype: WaterArchetype;
-  /** Every "x,y" grid cell covered by water (river ∪ sea strip). */
+  /** Every "x,y" grid cell covered by water (river ∪ sea strip). Always empty
+   * for dry and scenic archetypes. */
   cells: ReadonlySet<string>;
   /** Axis the river flows along ("x": west–east, "z": south–north). */
   riverAxis: "x" | "z";
@@ -38,12 +50,13 @@ export interface WaterBody {
   riverCenterAt(t: number): number;
   /** River water width (world units) at flow coordinate t. */
   riverWidthAt(t: number): number;
-  /** Signed world distance from the river's water edge; negative inside water. */
+  /** Signed world distance from the river's water edge; negative inside water.
+   * +Infinity on dry maps (there is no river anywhere). */
   riverDistance(x: number, z: number): number;
-  /** Coastal only: the world edge the sea lies along. */
+  /** Present iff the map has a sea: the world edge it lies along. */
   coastEdge?: CoastEdge;
   /** Signed world distance past the coastline; positive = open sea.
-   * -Infinity on inland maps (there is no sea anywhere). */
+   * -Infinity when the map has no sea. */
   seaDistance(x: number, z: number): number;
 }
 
@@ -78,7 +91,35 @@ export function generateWater(seed: string): WaterBody {
   // independent so adding water didn't reshuffle existing derived picks.
   const rand = mulberry32(hashString(`water:${seed}`));
 
-  const coastal = rand() < 0.5;
+  // Archetype roll: most runs get water in play (it's the feature), but the
+  // classic dry plain and scenery-only water keep the map pool varied.
+  const roll = rand();
+  const archetype: WaterArchetype =
+    roll < 0.15
+      ? "dry"
+      : roll < 0.45
+        ? "inland"
+        : roll < 0.75
+          ? "coastal"
+          : roll < 0.9
+            ? "scenic-river"
+            : "scenic-coast";
+
+  if (archetype === "dry") {
+    return {
+      archetype,
+      cells: new Set<string>(),
+      riverAxis: "x",
+      riverCenterAt: () => 0,
+      riverWidthAt: () => 0,
+      riverDistance: () => Infinity,
+      seaDistance: () => -Infinity,
+    };
+  }
+
+  const hasSea = archetype === "coastal" || archetype === "scenic-coast";
+  // Scenic water stays entirely outside the buildable grid.
+  const scenic = archetype === "scenic-river" || archetype === "scenic-coast";
   const riverAxis: "x" | "z" = rand() < 0.5 ? "x" : "z";
   // Coast lies on the edge the river flows into: sign of the flow axis.
   const coastSign = rand() < 0.5 ? 1 : -1;
@@ -99,18 +140,24 @@ export function generateWater(seed: string): WaterBody {
   const widthFreq = (Math.PI * 2) / (25 + rand() * 20);
   const widthPhase = rand() * Math.PI * 2;
 
-  // Centerline offset from the grid middle, clamped so water (center + full
-  // meander + half width) keeps EDGE_MARGIN from both parallel grid edges.
+  // Centerline offset from the grid middle. Through-town rivers are clamped
+  // so water (center + full meander + half width) keeps EDGE_MARGIN from both
+  // parallel grid edges; scenic rivers are pushed the same excursion PAST the
+  // grid edge instead, so no meander can dip a cell into water.
   const maxExcursion = amp1 + amp2 + (widthBase + widthVar); // half of 2× mouth width
-  const maxOffset = HALF_GRID - EDGE_MARGIN - maxExcursion;
-  const offset = (rand() < 0.5 ? -1 : 1) * Math.min(6 + rand() * 8, maxOffset);
+  const offsetSign = rand() < 0.5 ? -1 : 1;
+  const offset = scenic
+    ? offsetSign * (HALF_GRID + 1.5 + maxExcursion + rand() * 5)
+    : offsetSign * Math.min(6 + rand() * 8, HALF_GRID - EDGE_MARGIN - maxExcursion);
 
-  // Coastline: a strip clipped off the coast edge — base inset 2–3.5 wu
-  // (4–7 cells) wiggling by up to ±1.5, so the sea bites 1–10 cells deep.
-  const coastInset = 2 + rand() * 1.5;
   const coastAmp = 0.8 + rand() * 0.7;
   const coastFreq = (Math.PI * 2) / (20 + rand() * 20);
   const coastPhase = rand() * Math.PI * 2;
+  // Coastline base, as an inset from the coast grid edge. Coastal maps clip a
+  // waterfront strip 2–3.5 wu deep (±1.5 wiggle → the sea bites 1–10 cells);
+  // a scenic coast sits far enough OUT that no wiggle reaches the grid.
+  const coastInset =
+    archetype === "scenic-coast" ? -(1.5 + coastAmp + rand() * 4) : 2 + rand() * 1.5;
   // Flow-axis coordinate where the river meets the sea (coastline base).
   const mouthT = coastSign * (HALF_GRID - coastInset);
 
@@ -119,7 +166,7 @@ export function generateWater(seed: string): WaterBody {
 
   const riverWidthAt = (t: number) => {
     let width = widthBase + widthVar * Math.sin(t * widthFreq + widthPhase);
-    if (coastal) {
+    if (hasSea) {
       // Estuary: widen toward the mouth over the last ~10 wu.
       width *= 1 + smoothstep((t * coastSign - (mouthT * coastSign - 10)) / 10);
     }
@@ -132,13 +179,13 @@ export function generateWater(seed: string): WaterBody {
     let d = Math.abs(cross - riverCenterAt(t)) - riverWidthAt(t) / 2;
     // Past the mouth the sea takes over — fade the river channel out instead
     // of carving a valley across the sea floor.
-    if (coastal) d = Math.max(d, t * coastSign - (mouthT * coastSign + 3));
+    if (hasSea) d = Math.max(d, t * coastSign - (mouthT * coastSign + 3));
     return d;
   };
 
   // Signed distance past the coastline along the flow axis; the coastline
   // itself wiggles along the cross axis.
-  const seaDistance = coastal
+  const seaDistance = hasSea
     ? (x: number, z: number) => {
         const t = riverAxis === "x" ? x : z;
         const cross = riverAxis === "x" ? z : x;
@@ -156,7 +203,7 @@ export function generateWater(seed: string): WaterBody {
     }
   }
 
-  const coastEdge: CoastEdge | undefined = !coastal
+  const coastEdge: CoastEdge | undefined = !hasSea
     ? undefined
     : riverAxis === "x"
       ? coastSign > 0
@@ -167,7 +214,7 @@ export function generateWater(seed: string): WaterBody {
         : "south";
 
   return {
-    archetype: coastal ? "coastal" : "inland",
+    archetype,
     cells,
     riverAxis,
     riverCenterAt,

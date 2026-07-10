@@ -193,8 +193,9 @@ export function createWaterVisuals(
   }
 
   // Coastline shore: land lip/rim sloping down to a bed strip; the open sea
-  // sheet covers everything seaward of it.
-  if (water.archetype === "coastal") {
+  // sheet covers everything seaward of it. (coastEdge is present iff the map
+  // has a sea — coastal or scenic-coast.)
+  if (water.coastEdge) {
     let prevShore: number[][] | null = null;
     for (let u = -EXTENT; u <= EXTENT; u += 2) {
       const tC = coastlineAt(u);
@@ -274,7 +275,7 @@ export function createWaterVisuals(
   }
 
   // Open sea sheet: swept along the coastline out past the fog line.
-  if (water.archetype === "coastal") {
+  if (water.coastEdge) {
     const SEA_STEP = 6;
     let prevRow: number[][] | null = null;
     for (let u = -EXTENT; u <= EXTENT; u += SEA_STEP) {

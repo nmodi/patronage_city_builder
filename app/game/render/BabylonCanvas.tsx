@@ -123,9 +123,16 @@ export function BabylonCanvas() {
     let envModelsReady = false;
     let treeScatter: ReturnType<typeof scatterEnvironment> | null = null;
 
+    // A "dry" archetype has no water anywhere — render it exactly like the
+    // pre-water plain (and like old riverless saves).
+    function wetWater() {
+      const water = getWater(useGameStore.getState().waterSeed);
+      return water && water.archetype !== "dry" ? water : null;
+    }
+
     function initWorld() {
       if (disposed || terrain) return;
-      const water = getWater(useGameStore.getState().waterSeed);
+      const water = wetWater();
       terrain = createTerrain(scene, water);
       if (water) waterVisuals = createWaterVisuals(scene, water, terrain.surfaceAt);
       maybeScatter();
@@ -135,7 +142,7 @@ export function BabylonCanvas() {
     // (its height field and the river to keep out of).
     function maybeScatter() {
       if (disposed || !envModelsReady || !terrain || treeScatter) return;
-      const water = getWater(useGameStore.getState().waterSeed);
+      const water = wetWater();
       const avoid = water
         ? (x: number, z: number) => water.riverDistance(x, z) < 3 || water.seaDistance(x, z) > -3
         : undefined;
