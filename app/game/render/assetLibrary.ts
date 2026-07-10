@@ -1,10 +1,13 @@
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
+import "@babylonjs/core/Meshes/thinInstanceMesh";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import type { Material } from "@babylonjs/core/Materials/material";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { AssetContainer } from "@babylonjs/core/assetContainer";
 import type { Scene } from "@babylonjs/core/scene";
@@ -691,6 +694,20 @@ export function usesQuarterRotation(buildingId: BuildingId) {
   return MODEL_MANIFEST[buildingId]?.randomRotate === "quarter";
 }
 
+function getPadPair(size: number, scene: Scene) {
+  const on = getPadMaterial(size, scene);
+  let pair = materialPairs.get(on);
+  if (!pair) {
+    // Dim the flagstones when the building goes inactive (market short on workers).
+    const off = on.clone(`${on.name}-off`);
+    off.diffuseColor = new Color3(0.6, 0.6, 0.6);
+    pair = { on, off };
+    materialPairs.set(on, pair);
+    materialPairs.set(off, pair);
+  }
+  return pair;
+}
+
 function instantiatePart(part: Part, parent: TransformNode, scene: Scene): AbstractMesh[] {
   const container = containers.get(part.file);
   if (!container) return [];
@@ -724,6 +741,10 @@ export function hasModel(buildingId: BuildingId) {
 export type BuildingModel = {
   root: TransformNode;
   meshes: AbstractMesh[];
+  /** Batch key per mesh, parallel to `meshes`: source file + mesh index within
+   * its part instance (`pad:<size>` for the paving pad). Lets the batcher map
+   * each cloned mesh back to a shared thin-instance host. */
+  meshKeys: string[];
   /** World-space height after fitting, for markers/labels. */
   height: number;
   /** Add to the tile-center position: recenters prefabs whose composed
@@ -761,11 +782,15 @@ export function instantiateBuilding(
 
   const root = new TransformNode(`model-${buildingId}-${gridPos.x}-${gridPos.y}`, scene);
   const meshes: AbstractMesh[] = [];
+  const meshKeys: string[] = [];
   const buried = new Set<AbstractMesh>();
   for (const part of parts) {
     const partMeshes = instantiatePart(part, root, scene);
     if (part.buried) for (const mesh of partMeshes) buried.add(mesh);
-    meshes.push(...partMeshes);
+    partMeshes.forEach((mesh, i) => {
+      meshes.push(mesh);
+      meshKeys.push(`${part.file}#${i}`);
+    });
   }
   if (meshes.length === 0) {
     root.dispose();
@@ -778,17 +803,9 @@ export function instantiateBuilding(
     const pad = CreateGround(`pad-${buildingId}`, { width: def.pad, height: def.pad }, scene);
     pad.parent = root;
     pad.position.y = 0.02;
-    const on = getPadMaterial(def.pad, scene);
-    if (!materialPairs.has(on)) {
-      // Dim the flagstones when the building goes inactive (market short on workers).
-      const off = on.clone(`${on.name}-off`);
-      off.diffuseColor = new Color3(0.6, 0.6, 0.6);
-      const pair = { on, off };
-      materialPairs.set(on, pair);
-      materialPairs.set(off, pair);
-    }
-    pad.material = on;
+    pad.material = getPadPair(def.pad, scene).on;
     meshes.push(pad);
+    meshKeys.push(`pad:${def.pad}`);
   }
 
   // Rotate before fitting so rectangular prefabs fill the (rotated) footprint
@@ -826,6 +843,7 @@ export function instantiateBuilding(
     return {
       root,
       meshes,
+      meshKeys,
       height: (max.y - min.y) * scaleY,
       offsetX: -centerX * scaleX,
       offsetZ: -centerZ * scaleZ,
@@ -845,17 +863,209 @@ export function instantiateBuilding(
   return {
     root,
     meshes,
+    meshKeys,
     height: height - sink,
     offsetX: -centerX * scale,
     offsetZ: -centerZ * scale,
   };
 }
 
-export function setBuildingActive(model: BuildingModel, active: boolean) {
-  for (const mesh of model.meshes) {
-    const pair = mesh.material && materialPairs.get(mesh.material);
-    if (pair) mesh.material = active ? pair.on : pair.off;
+/** A building registered with the thin-instance batcher. */
+export type PlacedBuilding = {
+  /** World-space height after fitting, for markers/labels. */
+  height: number;
+  /** World-space top of the chimney part, when the prefab has one (smoke). */
+  chimneyTop: Vector3 | null;
+  setActive(active: boolean): void;
+  dispose(): void;
+};
+
+/**
+ * Renders placed buildings as thin-instance batches — one host mesh per
+ * (source kit mesh × active state) instead of a clone per building, so draw
+ * calls and shadow casters stay constant as the city grows. Layout reuses
+ * `instantiateBuilding` verbatim: a transient clone is built, its meshes'
+ * world matrices harvested into batches, and the clone disposed. Toggling
+ * active moves a building's matrices between the on/off batches (shared
+ * desaturated materials), preserving per-building inactive feedback.
+ * Call `flush()` once per frame after placements/toggles to upload buffers.
+ */
+export function createBuildingBatcher(
+  scene: Scene,
+  onHostCreated?: (mesh: Mesh, castsShadow: boolean) => void
+) {
+  type Batch = { mesh: Mesh; instances: Map<object, number[]> };
+  // `${meshKey}@on|off` → batch; hosts for both states are created together.
+  const batches = new Map<string, Batch>();
+  const builtMeshKeys = new Set<string>();
+  const dirty = new Set<Batch>();
+
+  function registerHost(meshKey: string, mesh: Mesh, state: "on" | "off", castsShadow: boolean) {
+    mesh.isPickable = false;
+    mesh.setEnabled(false);
+    batches.set(`${meshKey}@${state}`, { mesh, instances: new Map() });
+    onHostCreated?.(mesh, castsShadow);
   }
+
+  /** Host meshes live unparented at identity with geometry in mesh-local space,
+   * so instance matrices are exactly the harvested clone world matrices. */
+  function buildHosts(meshKey: string) {
+    if (builtMeshKeys.has(meshKey)) return;
+    if (meshKey.startsWith("pad:")) {
+      builtMeshKeys.add(meshKey);
+      const size = Number(meshKey.slice(4));
+      const pair = getPadPair(size, scene);
+      const on = CreateGround(`batch-pad-${size}`, { width: size, height: size }, scene);
+      on.material = pair.on;
+      const off = on.clone(`batch-pad-${size}-off`);
+      off.makeGeometryUnique(); // thin-instance hosts can't share geometry (VAO clash)
+      off.material = pair.off;
+      // Flat paving pads don't cast — their shadow is just an offset dark rim.
+      registerHost(meshKey, on, "on", false);
+      registerHost(meshKey, off, "off", false);
+      return;
+    }
+    const file = meshKey.slice(0, meshKey.lastIndexOf("#"));
+    const container = containers.get(file);
+    if (!container) return; // not loaded yet; the caller skips this mesh
+    // Build hosts for every mesh of the file at once — enumeration order
+    // matches instantiatePart, which is what meshKey indices refer to.
+    const entries = container.instantiateModelsToScene((name) => name, false, {
+      doNotInstantiate: true,
+    });
+    const meshes: Mesh[] = [];
+    for (const node of entries.rootNodes) {
+      const root = node as TransformNode;
+      for (const child of root.getChildMeshes(false)) meshes.push(child as Mesh);
+    }
+    meshes.forEach((mesh, i) => {
+      const key = `${file}#${i}`;
+      builtMeshKeys.add(key);
+      mesh.parent = null;
+      mesh.position.setAll(0);
+      mesh.rotationQuaternion = null;
+      mesh.rotation.setAll(0);
+      mesh.scaling.setAll(1);
+      // Thin-instance hosts must not share geometry: Babylon caches VAOs on the
+      // geometry, so co-owning hosts (incl. the scatter's) would clobber each
+      // other's instance-buffer bindings (GL "vertex buffer not big enough").
+      mesh.makeGeometryUnique();
+      const pair = mesh.material && materialPairs.get(mesh.material);
+      const off = mesh.clone(`${mesh.name}-off`, null);
+      off.makeGeometryUnique();
+      if (pair) {
+        mesh.material = pair.on;
+        off.material = pair.off;
+      }
+      registerHost(key, mesh, "on", true);
+      registerHost(key, off, "off", true);
+    });
+    for (const node of entries.rootNodes) node.dispose(); // leftover transform nodes
+  }
+
+  function getBatch(meshKey: string, active: boolean): Batch | null {
+    buildHosts(meshKey);
+    return batches.get(`${meshKey}@${active ? "on" : "off"}`) ?? null;
+  }
+
+  function place(
+    buildingId: BuildingId,
+    footprint: { width: number; depth: number },
+    gridPos: { x: number; y: number },
+    worldX: number,
+    worldZ: number,
+    rotation: number | undefined,
+    extend: { negX: boolean; posX: boolean } | undefined,
+    active: boolean
+  ): PlacedBuilding | null {
+    const model = instantiateBuilding(buildingId, footprint, gridPos, scene, rotation, extend);
+    if (!model) return null;
+    model.root.position.x = worldX + model.offsetX;
+    model.root.position.z = worldZ + model.offsetZ;
+    model.root.computeWorldMatrix(true);
+
+    // Harvest final world matrices (and the chimney top for smoke), grouped by
+    // batch key — a building can hold several copies of the same kit mesh.
+    let chimneyTop: Vector3 | null = null;
+    const matricesByKey = new Map<string, number[]>();
+    model.meshes.forEach((mesh, i) => {
+      const world = mesh.computeWorldMatrix(true);
+      if (!chimneyTop && mesh.name.includes("chimney")) {
+        chimneyTop = mesh.getBoundingInfo().boundingBox.maximumWorld.clone();
+      }
+      const key = model.meshKeys[i];
+      let arr = matricesByKey.get(key);
+      if (!arr) matricesByKey.set(key, (arr = []));
+      world.copyToArray(arr, arr.length);
+    });
+    const height = model.height;
+    model.root.dispose();
+
+    const token = {};
+    let state = active;
+    function register() {
+      for (const [key, arr] of matricesByKey) {
+        const batch = getBatch(key, state);
+        if (!batch) continue;
+        batch.instances.set(token, arr);
+        dirty.add(batch);
+      }
+    }
+    function unregister() {
+      for (const key of matricesByKey.keys()) {
+        const batch = batches.get(`${key}@${state ? "on" : "off"}`);
+        if (batch?.instances.delete(token)) dirty.add(batch);
+      }
+    }
+    register();
+
+    return {
+      height,
+      chimneyTop,
+      setActive(next: boolean) {
+        if (next === state) return;
+        unregister();
+        state = next;
+        register();
+      },
+      dispose() {
+        unregister();
+      },
+    };
+  }
+
+  /** Upload dirty batch buffers. Returns true when anything changed. */
+  function flush(): boolean {
+    if (dirty.size === 0) return false;
+    for (const batch of dirty) {
+      let total = 0;
+      for (const arr of batch.instances.values()) total += arr.length;
+      if (total === 0) {
+        batch.mesh.thinInstanceSetBuffer("matrix", null);
+        batch.mesh.setEnabled(false);
+        continue;
+      }
+      const buffer = new Float32Array(total);
+      let offset = 0;
+      for (const arr of batch.instances.values()) {
+        buffer.set(arr, offset);
+        offset += arr.length;
+      }
+      batch.mesh.thinInstanceSetBuffer("matrix", buffer, 16, true);
+      batch.mesh.setEnabled(true);
+    }
+    dirty.clear();
+    return true;
+  }
+
+  function dispose() {
+    for (const batch of batches.values()) batch.mesh.dispose();
+    batches.clear();
+    builtMeshKeys.clear();
+    dirty.clear();
+  }
+
+  return { place, flush, dispose };
 }
 
 export function overrideMaterials(model: BuildingModel, material: Material) {
@@ -890,13 +1100,13 @@ type ScatterOptions = {
   drop?: number;
 };
 
-/** Decorative wilderness on the hills outside the buildable grid. Instances are
- * emitted in small batches after the playable city has rendered at least once. */
+/** Decorative wilderness on the hills outside the buildable grid, rendered as
+ * thin-instance batches: one host mesh per unique kit mesh instead of one
+ * clone per tree, so hundreds of scatter items cost a couple dozen draw calls. */
 export function scatterEnvironment(
   heightAt: (x: number, z: number) => number,
   rand: () => number
 ) {
-  const roots: TransformNode[] = [];
   const placements: Array<{ file: string; x: number; z: number; opts: ScatterOptions }> = [];
   const buildHalfExtent = (GRID_SIZE * CELL_SIZE) / 2;
   const minDistance = buildHalfExtent + ENV_CLEARANCE;
@@ -908,33 +1118,6 @@ export function scatterEnvironment(
     opts: ScatterOptions = {}
   ) {
     placements.push({ file, x, z, opts });
-  }
-
-  function instantiate({ file, x, z, opts }: (typeof placements)[number]) {
-    const container = containers.get(file);
-    if (!container) return;
-    const entries = container.instantiateModelsToScene((name) => name, false);
-    for (const node of entries.rootNodes) {
-      const root = node as TransformNode;
-      root.scaling.setAll(opts.scale ?? 1);
-      if (opts.stretch) {
-        root.scaling.x *= opts.stretch[0];
-        root.scaling.y *= opts.stretch[1];
-        root.scaling.z *= opts.stretch[2];
-      }
-      let y = heightAt(x, z) - (opts.drop ?? 0.1);
-      if (opts.sinkY) {
-        // Bury the bare trunk, matching the placed cypress prefab.
-        root.computeWorldMatrix(true);
-        const { min, max } = root.getHierarchyBoundingVectors(true);
-        y -= opts.sinkY * (max.y - min.y);
-      }
-      root.position.set(x, y, z);
-      root.rotationQuaternion = null;
-      root.rotation.y = opts.rotY ?? rand() * Math.PI * 2;
-      for (const mesh of root.getChildMeshes(false)) mesh.isPickable = false;
-      roots.push(root);
-    }
   }
 
   /** Random point in the scatter ring around the build area, or null. */
@@ -1052,16 +1235,90 @@ export function scatterEnvironment(
     n += 1;
   }
 
-  let cursor = 0;
+  // One host mesh per unique mesh in a kit file, unparented at identity so its
+  // thin-instance matrices are absolute world transforms. `local` captures the
+  // mesh's transform chain inside the model (glTF node TRS) to pre-multiply in.
+  type FileBatch = { meshes: Array<{ mesh: Mesh; local: Matrix }>; extentY: number };
+  const fileBatches = new Map<string, FileBatch>();
+  const hosts: Mesh[] = [];
+
+  function getFileBatch(file: string): FileBatch | null {
+    let batch = fileBatches.get(file);
+    if (batch) return batch;
+    const container = containers.get(file);
+    if (!container) return null;
+    const entries = container.instantiateModelsToScene((name) => name, false, {
+      doNotInstantiate: true,
+    });
+    const meshes: FileBatch["meshes"] = [];
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const node of entries.rootNodes) {
+      const root = node as TransformNode;
+      root.computeWorldMatrix(true);
+      const bounds = root.getHierarchyBoundingVectors(true);
+      minY = Math.min(minY, bounds.min.y);
+      maxY = Math.max(maxY, bounds.max.y);
+      for (const child of root.getChildMeshes(false)) {
+        const mesh = child as Mesh;
+        const local = mesh.computeWorldMatrix(true).clone();
+        mesh.parent = null;
+        mesh.position.setAll(0);
+        mesh.rotationQuaternion = null;
+        mesh.rotation.setAll(0);
+        mesh.scaling.setAll(1);
+        mesh.isPickable = false;
+        // Thin-instance hosts must not share geometry: Babylon caches VAOs on
+        // the geometry, so co-owning hosts would clobber each other's
+        // instance-buffer bindings (GL "vertex buffer not big enough").
+        mesh.makeGeometryUnique();
+        meshes.push({ mesh, local });
+        hosts.push(mesh);
+      }
+      root.dispose(); // meshes were unparented; this only drops leftover transform nodes
+    }
+    batch = { meshes, extentY: maxY - minY };
+    fileBatches.set(file, batch);
+    return batch;
+  }
+
+  // Iterating placements in order keeps rand() consumption identical to the
+  // old per-clone streaming path, so the scatter layout is unchanged.
+  const instanceData = new Map<Mesh, number[]>();
+  const scaling = new Vector3();
+  const rotation = new Quaternion();
+  const translation = new Vector3();
+  const placementMatrix = new Matrix();
+  const instanceMatrix = new Matrix();
+  for (const { file, x, z, opts } of placements) {
+    const batch = getFileBatch(file);
+    if (!batch) continue;
+    const s = opts.scale ?? 1;
+    scaling.set(
+      s * (opts.stretch?.[0] ?? 1),
+      s * (opts.stretch?.[1] ?? 1),
+      s * (opts.stretch?.[2] ?? 1)
+    );
+    let y = heightAt(x, z) - (opts.drop ?? 0.1);
+    // Bury the bare trunk, matching the placed cypress prefab.
+    if (opts.sinkY) y -= opts.sinkY * batch.extentY * scaling.y;
+    Quaternion.RotationYawPitchRollToRef(opts.rotY ?? rand() * Math.PI * 2, 0, 0, rotation);
+    translation.set(x, y, z);
+    Matrix.ComposeToRef(scaling, rotation, translation, placementMatrix);
+    for (const { mesh, local } of batch.meshes) {
+      local.multiplyToRef(placementMatrix, instanceMatrix);
+      let data = instanceData.get(mesh);
+      if (!data) instanceData.set(mesh, (data = []));
+      instanceMatrix.copyToArray(data, data.length);
+    }
+  }
+  for (const [mesh, data] of instanceData) {
+    mesh.thinInstanceSetBuffer("matrix", Float32Array.from(data), 16, true);
+  }
+
   return {
-    /** Returns true once all decorative instances have been emitted. */
-    renderNextBatch(limit = 32) {
-      const end = Math.min(cursor + limit, placements.length);
-      while (cursor < end) instantiate(placements[cursor++]);
-      return cursor >= placements.length;
-    },
     dispose() {
-      for (const root of roots) root.dispose();
+      for (const host of hosts) host.dispose();
     },
   };
 }

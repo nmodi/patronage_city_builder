@@ -12,11 +12,10 @@ import { CELL_SIZE, GRID_SIZE } from "~/game/constants";
 import type { BuildingMetadata, BuildingType } from "~/game/types";
 import type { Tile } from "~/stores/useGameStore";
 import {
+  createBuildingBatcher,
   hasExtensions,
   hasModel,
-  instantiateBuilding,
-  setBuildingActive,
-  type BuildingModel,
+  type PlacedBuilding,
 } from "./assetLibrary";
 import { createDirtPathOverlay, getApronMaterial, getRoadMaterial } from "./paths";
 import { createSmokePlume, type SmokePlume } from "./smoke";
@@ -66,7 +65,7 @@ function desaturate(color: Color3) {
 
 type TileMeshEntry = {
   box: Mesh | null;
-  model: BuildingModel | null;
+  placed: PlacedBuilding | null;
   apron: Mesh | null;
   marker: Mesh | null;
   smoke: SmokePlume | null;
@@ -137,6 +136,14 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
   const pavedRoads = createRoadBatch("paved-road-batch");
   const dirtOverlay = createDirtPathOverlay(scene);
 
+  // Buildings share thin-instance batches per kit mesh; the batch hosts are the
+  // only shadow casters, so the caster list stays constant as the city grows.
+  // ponytail: models cast onto the ground but don't receive — blur-ESM self-shadow
+  // acne turns the glTF walls to mud; switch to PCF shadows if receiving ever matters
+  const batcher = createBuildingBatcher(scene, (mesh, castsShadow) => {
+    if (castsShadow) shadowGenerator.addShadowCaster(mesh);
+  });
+
   // Shared by every inactive-building marker — they're all identical amber diamonds.
   const markerMaterial = new StandardMaterial("marker-mat", scene);
   markerMaterial.diffuseColor = Color3.FromHexString("#d97706");
@@ -195,39 +202,29 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     extend?: { negX: boolean; posX: boolean }
   ): TileMeshEntry {
     const apron = createApron(tile, metadata);
-    const model = instantiateBuilding(
+    const { x, z } = gridToWorld(tile.position.x, tile.position.y, metadata, tile.rotation);
+    const placed = batcher.place(
       tile.buildingId,
       rotatedFootprint(metadata, tile.rotation),
       tile.position,
-      scene,
+      x,
+      z,
       tile.rotation,
-      extend
+      extend,
+      tile.isActive
     );
-    if (model) {
-      const { x, z } = gridToWorld(tile.position.x, tile.position.y, metadata, tile.rotation);
-      model.root.position.x = x + model.offsetX;
-      model.root.position.z = z + model.offsetZ;
-      // ponytail: models cast onto the ground but don't receive — blur-ESM self-shadow
-      // acne turns the glTF walls to mud; switch to PCF shadows if receiving ever matters
-      for (const mesh of model.meshes) {
-        // Flat paving pads don't cast — their shadow is just an offset dark rim.
-        if (!mesh.name.startsWith("pad-")) shadowGenerator.addShadowCaster(mesh);
-      }
-      setBuildingActive(model, tile.isActive);
-
+    if (placed) {
       let smoke: SmokePlume | null = null;
-      const chimney = model.meshes.find((mesh) => mesh.name.includes("chimney"));
-      if (chimney) {
-        chimney.computeWorldMatrix(true);
-        const top = chimney.getBoundingInfo().boundingBox.maximumWorld;
+      if (placed.chimneyTop) {
+        const top = placed.chimneyTop;
         smoke = createSmokePlume(scene, new Vector3(top.x - 0.08, top.y, top.z - 0.08));
         smoke.setActive(tile.isActive);
       }
-      return { box: null, model, apron, marker: null, smoke, buildingId: tile.buildingId, isActive: tile.isActive, extendKey: "" };
+      return { box: null, placed, apron, marker: null, smoke, buildingId: tile.buildingId, isActive: tile.isActive, extendKey: "" };
     }
     return {
       box: createBoxMesh(tile, metadata),
-      model: null,
+      placed: null,
       apron,
       marker: null,
       smoke: null,
@@ -242,11 +239,11 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     entry.box?.dispose();
     entry.smoke?.dispose();
     entry.apron?.dispose();
-    entry.model?.root.dispose();
+    entry.placed?.dispose();
   }
 
   function markerHeight(entry: TileMeshEntry, metadata: BuildingMetadata) {
-    if (entry.model) return entry.model.height + 0.35;
+    if (entry.placed) return entry.placed.height + 0.35;
     return metadata.size.height + 0.4;
   }
 
@@ -282,6 +279,24 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     batch.dirty = false;
   }
 
+  // The shadow map renders on demand (REFRESHRATE_RENDER_ONCE); poke it when
+  // casters change. Depth-shader compilation is forced first — a not-yet-ready
+  // caster is silently skipped during the single render and would stay
+  // shadowless until the next change. The microtask coalesces the per-entry
+  // calls of a processSync batch into one compile+render.
+  let shadowRefreshPending = false;
+  function refreshShadows() {
+    if (shadowRefreshPending) return;
+    shadowRefreshPending = true;
+    queueMicrotask(() => {
+      shadowRefreshPending = false;
+      if (scene.isDisposed) return;
+      void shadowGenerator
+        .forceCompilationAsync()
+        .then(() => shadowGenerator.getShadowMap()?.resetRefreshCounter());
+    });
+  }
+
   function renderOrigin(key: string) {
     const tile = renderedTiles[key];
     const entry = active.get(key);
@@ -289,6 +304,7 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
       if (entry) {
         disposeEntry(entry);
         active.delete(key);
+        refreshShadows();
       }
       extensionOrigins.delete(key);
       return;
@@ -305,9 +321,10 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
       nextEntry = createEntry(tile, metadata, extend ?? undefined);
       nextEntry.extendKey = extendKey;
       active.set(key, nextEntry);
+      refreshShadows();
     } else if (nextEntry.isActive !== tile.isActive) {
       nextEntry.isActive = tile.isActive;
-      if (nextEntry.model) setBuildingActive(nextEntry.model, tile.isActive);
+      nextEntry.placed?.setActive(tile.isActive);
       if (nextEntry.box) nextEntry.box.material = getMaterial(metadata.color, metadata.type, !tile.isActive);
       nextEntry.smoke?.setActive(tile.isActive);
     }
@@ -330,21 +347,27 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     }
   }
 
-  /** Queue only changed origins; callers spread construction over animation frames. */
+  /**
+   * Queue only changed origins; callers spread construction over animation frames.
+   * Returns the building ids present among changed tiles so the caller can
+   * preload just those models instead of rescanning the whole map.
+   */
   function queueSync(tiles: Record<string, Tile>) {
     const changedKeys = new Set<string>();
     const topologyChangedKeys = new Set<string>();
+    const changedBuildingIds = new Set<BuildingId>();
     for (const [key, tile] of Object.entries(renderedTiles)) {
       if (tiles[key] !== tile) changedKeys.add(key);
     }
     for (const [key, tile] of Object.entries(tiles)) {
       if (renderedTiles[key] !== tile) changedKeys.add(key);
     }
-    if (changedKeys.size === 0) return;
+    if (changedKeys.size === 0) return changedBuildingIds;
 
     for (const key of changedKeys) {
       const previous = renderedTiles[key];
       const next = tiles[key];
+      if (next && next.type !== "road") changedBuildingIds.add(next.buildingId);
       updateRoad(key, previous, next);
       const wasOccupied = previous != null;
       const isOccupied = next != null;
@@ -371,6 +394,7 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     flushRoadBatch(pavedRoads);
 
     dirtOverlay.update(dirtCells, occupiedCells, topologyChangedKeys);
+    return changedBuildingIds;
   }
 
   /** Builds at most `budget` entries. Returns true when the pending work is drained. */
@@ -382,6 +406,8 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
       renderOrigin(key);
       built += 1;
     }
+    // Instance matrices changed → the on-demand shadow map needs a render.
+    if (batcher.flush()) refreshShadows();
     return pendingOrigins.size === 0;
   }
 
@@ -403,6 +429,7 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     materialCache.clear();
     markerMaterial.dispose();
     pavedRoads.mesh.dispose();
+    batcher.dispose();
     dirtOverlay.dispose();
     gridLines.dispose();
   }

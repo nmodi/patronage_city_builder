@@ -156,18 +156,20 @@ export function getRoadMaterial(scene: Scene) {
  * cell need a canvas redraw and GPU texture upload.
  */
 export function createDirtPathOverlay(scene: Scene) {
-  // 20 cells × 25.6 pixels = 512px, so the 80-cell grid divides into four
-  // power-of-two chunks without changing the previous pixels-per-cell detail.
-  const CHUNKS_PER_AXIS = 4;
-  const CHUNK_CELLS = GRID_SIZE / CHUNKS_PER_AXIS;
+  // Chunk size is fixed at 20 cells × 25.6 pixels = 512px, so redraw cost and
+  // pixels-per-cell detail stay constant no matter how large the grid grows —
+  // a bigger grid just means more lazily-allocated chunks. Chunk meshes are
+  // ordinary grounds, so Babylon frustum-culls off-screen ones for free.
+  const CHUNK_CELLS = 20;
+  const CHUNKS_PER_AXIS = GRID_SIZE / CHUNK_CELLS;
   const size = 512;
   const px = size / CHUNK_CELLS;
   const r = px / 2; // corner radius: half a cell
   const w = px * 0.18; // width of the dark rim along grass edges
   const worldChunkSize = CHUNK_CELLS * CELL_SIZE;
 
-  if (!Number.isInteger(CHUNK_CELLS)) {
-    throw new Error("Dirt path chunks require GRID_SIZE to divide evenly into four.");
+  if (!Number.isInteger(CHUNKS_PER_AXIS)) {
+    throw new Error(`Dirt path chunks require GRID_SIZE to be a multiple of ${CHUNK_CELLS}.`);
   }
 
   type DirtChunk = {

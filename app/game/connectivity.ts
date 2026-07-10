@@ -34,11 +34,22 @@ const NEIGHBORS = [
  * reachable from it through roads (an isolated plaza radiates nothing).
  * Roads and plazas themselves are the network, not recipients.
  */
-// ponytail: recomputed from scratch each call — trivial on a 40×40 sparse
-// grid; memoize on a tiles version if the grid ever grows.
+// Memoized by tiles object identity: the store replaces the tiles object on
+// every change, so a hit is always current. Covers the tick's second call via
+// getHousing and the per-render tooltip/TopBar calls.
+const memo = new WeakMap<Record<string, ConnectivityTile>, Map<string, number>>();
+
 export function computePlazaConnectivity(
   tiles: Record<string, ConnectivityTile>
 ): Map<string, number> {
+  const cached = memo.get(tiles);
+  if (cached) return cached;
+  const result = computeUncached(tiles);
+  memo.set(tiles, result);
+  return result;
+}
+
+function computeUncached(tiles: Record<string, ConnectivityTile>): Map<string, number> {
   // 0-1 BFS over the network: main-plaza cells seed at distance 0, roads cost
   // 1 per tile, any plaza cell reached resets to 0 (the refresh).
   const dist = new Map<string, number>();

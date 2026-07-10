@@ -5,6 +5,7 @@ import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import { ColorCurves } from "@babylonjs/core/Materials/colorCurves";
+import { RenderTargetTexture } from "@babylonjs/core/Materials/Textures/renderTargetTexture";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
@@ -74,8 +75,12 @@ export function BabylonCanvas() {
     dirLight.position = new Vector3(5, 5, 5);
     dirLight.intensity = 1.5;
 
-    const shadowGenerator = new ShadowGenerator(1024, dirLight);
+    const shadowGenerator = new ShadowGenerator(2048, dirLight);
     shadowGenerator.useBlurExponentialShadowMap = true;
+    // Light and casters are static between placements — render the shadow map
+    // only when the tile renderer says casters changed, not every frame.
+    const shadowMap = shadowGenerator.getShadowMap();
+    if (shadowMap) shadowMap.refreshRate = RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
 
     // Warm Renaissance grade: push the whole frame toward golden hour.
     // Curves go on the scene config *before* the pipeline is built so the
@@ -99,7 +104,6 @@ export function BabylonCanvas() {
     let disposed = false;
     let treeScatter: ReturnType<typeof scatterEnvironment> | null = null;
     let tileFrame: number | null = null;
-    let scatterFrame: number | null = null;
     let environmentTimer: number | null = null;
     const pendingModelIds = new Set<BuildingId>();
     let modelLoadRunning = false;
@@ -145,13 +149,11 @@ export function BabylonCanvas() {
     }
 
     function queueMap(tiles: ReturnType<typeof useGameStore.getState>["map"]["tiles"]) {
-      tileRenderer.queueSync(tiles);
+      // queueSync reports only the building ids among changed tiles, so ticks
+      // that merely touch worker state no longer trigger a full-map scan here.
+      const changedBuildingIds = tileRenderer.queueSync(tiles);
       scheduleTileWork();
-      const buildingIds: BuildingId[] = [];
-      for (const tile of Object.values(tiles)) {
-        if (tile.isOrigin && tile.type !== "road") buildingIds.push(tile.buildingId);
-      }
-      queueModels(buildingIds);
+      if (changedBuildingIds.size > 0) queueModels(changedBuildingIds);
     }
 
     const initialTiles = useGameStore.getState().map.tiles;
@@ -159,19 +161,13 @@ export function BabylonCanvas() {
     citizens.sync(initialTiles);
 
     // The environment is intentionally non-blocking: it loads after the city
-    // had a chance to paint, then emits a small batch every animation frame.
+    // had a chance to paint. Emission is thin-instance batches — cheap enough
+    // to build in one go once the models are in.
     environmentTimer = window.setTimeout(() => {
       void preloadEnvironmentModels(scene)
         .then(() => {
           if (disposed) return;
           treeScatter = scatterEnvironment(terrain.heightAt, terrain.rand);
-          const renderScatter = () => {
-            if (disposed || !treeScatter) return;
-            if (!treeScatter.renderNextBatch(32)) {
-              scatterFrame = window.requestAnimationFrame(renderScatter);
-            }
-          };
-          scatterFrame = window.requestAnimationFrame(renderScatter);
         })
         .catch((error) => console.error("Environment preload failed:", error));
     }, 750);
@@ -241,7 +237,6 @@ export function BabylonCanvas() {
     return () => {
       disposed = true;
       if (tileFrame != null) window.cancelAnimationFrame(tileFrame);
-      if (scatterFrame != null) window.cancelAnimationFrame(scatterFrame);
       if (environmentTimer != null) window.clearTimeout(environmentTimer);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
