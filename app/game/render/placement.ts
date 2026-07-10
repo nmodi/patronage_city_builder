@@ -192,12 +192,14 @@ export function createPlacementController(scene: Scene) {
     return positions;
   }
 
-  // Existing road tiles may be overlapped (that's how stretches join); only
-  // buildings block. Returns the cells that still need placing (and paying
-  // for), or null if the stretch is blocked or unaffordable.
+  // A cell already carrying the same run may be overlapped (that's how stretches
+  // join); only foreign tiles block. Roads join any road width; linear
+  // decorations join only their own kind. Returns the cells that still need
+  // placing (and paying for), or null if the stretch is blocked or unaffordable.
   function planRoadStretch(state: GameState, positions: GridPos[], buildingId: BuildingId) {
     const metadata = BUILDING_METADATA_BY_ID[buildingId];
-    if (!metadata || metadata.type !== "road" || positions.length === 0) return null;
+    const isDrag = metadata && (metadata.type === "road" || metadata.linear);
+    if (!isDrag || positions.length === 0) return null;
 
     const newCells: GridPos[] = [];
     for (const position of positions) {
@@ -205,8 +207,9 @@ export function createPlacementController(scene: Scene) {
         return null;
       }
       const tile = state.map.tiles[`${position.x},${position.y}`];
+      const joinable = metadata.type === "road" ? tile?.type === "road" : tile?.buildingId === buildingId;
       if (!tile) newCells.push(position);
-      else if (tile.type !== "road") return null;
+      else if (!joinable) return null;
     }
     if (state.florins < metadata.baseCost * newCells.length) return null;
     return newCells;
@@ -298,7 +301,7 @@ export function createPlacementController(scene: Scene) {
       return;
     }
 
-    if (metadata.type === "road") {
+    if (metadata.type === "road" || metadata.linear) {
       clearGhost();
       updateRoadPlacement(state, selectedBuilding, currentPosition);
       return;

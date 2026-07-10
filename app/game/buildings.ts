@@ -303,11 +303,12 @@ export const BUILDING_TYPES = [
     type: "decoration",
     id: "colonnade",
     name: "Colonnade",
-    baseCost: 200,
+    baseCost: 30, // per cell — drag a run like a road
     size: { width: 2.8, height: 1.2, depth: 0.4 },
     color: "#d8d2c4",
-    footprint: { width: 6, depth: 2 },
+    footprint: { width: 1, depth: 1 },
     paved: true,
+    linear: true,
   },
   {
     type: "decoration",
@@ -359,19 +360,21 @@ export const BUILDING_TYPES = [
     type: "decoration",
     id: "fence",
     name: "Fence",
-    baseCost: 30,
+    baseCost: 8, // per cell — drag a run like a road
     size: { width: 1.9, height: 0.35, depth: 0.15 },
     color: "#9a7b57",
-    footprint: { width: 4, depth: 1 },
+    footprint: { width: 1, depth: 1 },
+    linear: true,
   },
   {
     type: "decoration",
     id: "stone_wall",
     name: "Stone Wall",
-    baseCost: 40,
+    baseCost: 10, // per cell — drag a run like a road
     size: { width: 1.9, height: 0.35, depth: 0.15 },
     color: "#d8d2c4",
-    footprint: { width: 4, depth: 1 },
+    footprint: { width: 1, depth: 1 },
+    linear: true,
   },
   {
     type: "decoration",

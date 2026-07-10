@@ -18,11 +18,13 @@ import {
   getBlendGroup,
   hasExtensions,
   hasModel,
+  isSegment,
   localSideForGrid,
   reactsToNeighbors,
   type BlendSides,
   type GridSide,
   type PlacedBuilding,
+  type SegmentMask,
 } from "./assetLibrary";
 import { createDirtPathOverlay, getApronMaterial, getRoadMaterial } from "./paths";
 import { createSmokePlume, type SmokePlume } from "./smoke";
@@ -179,6 +181,14 @@ function computeBlend(
   return blend;
 }
 
+/** Same-buildingId orthogonal neighbors of a linear segment tile (each cell is
+ * its own 1×1 origin), driving its orientation and open-end caps. */
+function computeSegment(tile: Tile, tiles: Record<string, Tile>): SegmentMask {
+  const { x, y } = tile.position;
+  const same = (cx: number, cy: number) => tiles[`${cx},${cy}`]?.buildingId === tile.buildingId;
+  return { px: same(x + 1, y), nx: same(x - 1, y), pz: same(x, y + 1), nz: same(x, y - 1) };
+}
+
 export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerator) {
   const materialCache = new Map<string, StandardMaterial>();
   const active = new Map<string, TileMeshEntry>();
@@ -267,7 +277,8 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     tile: Tile,
     metadata: BuildingMetadata,
     extend?: { negX: boolean; posX: boolean },
-    blend?: BlendSides
+    blend?: BlendSides,
+    segment?: SegmentMask
   ): TileMeshEntry {
     const apron = createApron(tile, metadata);
     const { x, z } = gridToWorld(tile.position.x, tile.position.y, metadata, tile.rotation);
@@ -280,7 +291,8 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
       tile.rotation,
       extend,
       blend,
-      tile.isActive
+      tile.isActive,
+      segment
     );
     if (placed) {
       let smoke: SmokePlume | null = null;
@@ -385,16 +397,19 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
     if (!metadata) return;
     const extend = hasExtensions(tile.buildingId) ? computeExtend(tile, metadata, renderedTiles) : null;
     const blend = getBlendGroup(tile.buildingId) != null ? computeBlend(tile, metadata, renderedTiles) : null;
+    const segment = isSegment(tile.buildingId) ? computeSegment(tile, renderedTiles) : null;
     const extendKey = extend
       ? `${extend.negX ? "n" : ""}${extend.posX ? "p" : ""}`
       : blend
         ? `b${blend.posX ? 1 : 0}${blend.negX ? 1 : 0}${blend.posZ ? 1 : 0}${blend.negZ ? 1 : 0}`
-        : "";
+        : segment
+          ? `s${segment.px ? 1 : 0}${segment.nx ? 1 : 0}${segment.pz ? 1 : 0}${segment.nz ? 1 : 0}`
+          : "";
     let nextEntry = entry;
     const staleBox = nextEntry?.box && hasModel(tile.buildingId);
     if (!nextEntry || nextEntry.buildingId !== tile.buildingId || staleBox || nextEntry.extendKey !== extendKey) {
       if (nextEntry) disposeEntry(nextEntry);
-      nextEntry = createEntry(tile, metadata, extend ?? undefined, blend ?? undefined);
+      nextEntry = createEntry(tile, metadata, extend ?? undefined, blend ?? undefined, segment ?? undefined);
       nextEntry.extendKey = extendKey;
       active.set(key, nextEntry);
       refreshShadows();

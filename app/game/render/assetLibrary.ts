@@ -28,6 +28,10 @@ export type GridSide = "posX" | "negX" | "posY" | "negY";
 /** Local sides whose face stretches to the footprint boundary to meet an
  * abutting row-house (see mapRenderer computeBlend). */
 export type BlendSides = Partial<Record<LocalSide, boolean>>;
+/** Same-buildingId orthogonal neighbors of a drag-placed linear segment tile,
+ * in grid space (grid y maps to local/world z). Drives per-cell orientation and
+ * open-end caps (see mapRenderer computeSegment). */
+export type SegmentMask = { px: boolean; nx: boolean; pz: boolean; nz: boolean };
 
 /** One kit piece placed relative to the footprint center, in kit units (1 unit = 1 cell). */
 type Part = {
@@ -90,6 +94,19 @@ type ModelDef = {
    * parts stretch to the footprint boundary on sides facing a same-group
    * neighbor (row-houses). Sides carrying the door (`front`) never blend. */
   blendGroup?: string;
+  /** Drag-placed linear decoration (fence/wall/colonnade): the model is built
+   * per 1×1 cell from this spec + the neighbor mask instead of `parts`. */
+  segment?: SegmentSpec;
+};
+
+/** Per-cell spec for a linear segment. `along` is authored spanning ±0.5 kit on
+ * local X (thin on Z); it renders on the X axis when an x-neighbor exists and,
+ * rotated 90°, on the Z axis for z-neighbors. `core` renders once at center;
+ * `cap` is a centered post dropped at each open run-axis end (wall end-posts). */
+type SegmentSpec = {
+  core?: Part[];
+  along: Part[];
+  cap?: Part;
 };
 
 const TOWN = "/models/town/";
@@ -121,6 +138,44 @@ const VINEYARD_PARTS: Part[] = [-1.3, 0, 1.3].flatMap((z, row) => [
     })
   ),
 ]);
+
+// Rotate an `along` part 90° about Y so its long (local X) axis points along Z
+// for a vertical run. Parts sit near center, so position rotates too (x'=z, z'=−x).
+function rotateAlong90(part: Part): Part {
+  const [x, y, z] = part.position ?? [0, 0, 0];
+  return { ...part, position: [z, y, -x], rotationY: (part.rotationY ?? 0) + Math.PI / 2 };
+}
+
+// Compose a linear segment's parts from its neighbor mask: run pieces on each
+// axis that has a same-id neighbor (isolated cells default to the X axis), plus
+// a cap post at every open run-axis end. Caps are `buried` so they overhang the
+// footprint at the cell edge instead of shrinking the fit.
+const SEG_HALF = 0.5; // kit half-extent — the cell edge, where end caps sit
+function segmentParts(spec: SegmentSpec, mask: SegmentMask): Part[] {
+  const out: Part[] = [...(spec.core ?? [])];
+  const hasX = mask.px || mask.nx;
+  const hasZ = mask.pz || mask.nz;
+  const capAt = (px: number, pz: number): Part => ({
+    ...spec.cap!,
+    position: [px, spec.cap!.position?.[1] ?? 0, pz],
+    buried: true,
+  });
+  if (hasX || !hasZ) {
+    out.push(...spec.along);
+    if (spec.cap) {
+      if (!mask.px) out.push(capAt(SEG_HALF, 0));
+      if (!mask.nx) out.push(capAt(-SEG_HALF, 0));
+    }
+  }
+  if (hasZ) {
+    out.push(...spec.along.map(rotateAlong90));
+    if (spec.cap) {
+      if (!mask.pz) out.push(capAt(0, SEG_HALF));
+      if (!mask.nz) out.push(capAt(0, -SEG_HALF));
+    }
+  }
+  return out;
+}
 
 /** Shallower roof pitch: kit roofs squashed to 60% height, origin at the base
  * so they stay flush on the walls. */
@@ -674,26 +729,16 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
     parts: [{ file: TOWN + "fountain-round-detail.glb" }],
     fit: 0.85,
   },
+  // Per-cell colonnade: a thick column per cell under a full-cell entablature
+  // (consecutive cells' entablature blocks butt into a continuous cornice).
+  // Column width stays under the cell so the entablature — not the column —
+  // drives the fit and stays gapless. Drag a run like a road.
   colonnade: {
-    parts: [
-      { file: TOWN + "pillar-stone.glb", position: [-2, 0, 0], scale: [1.4, 1.15, 1.4] },
-      { file: TOWN + "pillar-stone.glb", position: [-1, 0, 0], scale: [1.4, 1.15, 1.4] },
-      { file: TOWN + "pillar-stone.glb", position: [0, 0, 0], scale: [1.4, 1.15, 1.4] },
-      { file: TOWN + "pillar-stone.glb", position: [1, 0, 0], scale: [1.4, 1.15, 1.4] },
-      { file: TOWN + "pillar-stone.glb", position: [2, 0, 0], scale: [1.4, 1.15, 1.4] },
-      // Stone architrave: a wall-block squashed to a slab (roof-flat is roof-tinted).
-      { file: TOWN + "wall-block.glb", position: [0, 1.15, 0], scale: [4.6, 0.1, 0.5] },
-    ],
-    fit: 0.95,
-    // A building abutting an end: run the architrave (roof slab only) past the
-    // footprint into its wall to fake a junction — an extra pillar there crowds
-    // the end pillar.
-    extendPosX: [
-      { file: TOWN + "wall-block.glb", position: [2.75, 1.15, 0], scale: [0.9, 0.1, 0.5], buried: true },
-    ],
-    extendNegX: [
-      { file: TOWN + "wall-block.glb", position: [-2.75, 1.15, 0], scale: [0.9, 0.1, 0.5], buried: true },
-    ],
+    segment: {
+      core: [{ file: TOWN + "pillar-stone.glb", scale: [1.7, 1.55, 1.7] }],
+      along: [{ file: TOWN + "wall-block.glb", position: [0, 1.5, 0], scale: [1, 0.13, 0.72] }],
+    },
+    fit: 1.0,
   },
   obelisk: {
     parts: [
@@ -746,24 +791,23 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
     randomRotate: "free",
     randomScale: [0.85, 1.15],
   },
-  // Two 1-unit segments side by side so the fitted rails stay knee-high
-  // (a single stretched segment would fit twice as tall).
+  // Per-cell fence: one rail spanning the cell, oriented to the run — scaled up
+  // in height and thickness so it reads as sturdy posts-and-rails. Drag a run
+  // like a road.
   fence: {
-    parts: [
-      { file: NATURE + "fence_simple.glb", position: [-0.5, 0, 0] },
-      { file: NATURE + "fence_planks.glb", position: [0.5, 0, 0] },
-    ],
-    fit: 0.98,
+    segment: {
+      along: [{ file: NATURE + "fence_simple.glb", scale: [1, 1.5, 1.6] }],
+    },
+    fit: 1.0,
   },
-  // Low sandstone wall: a stretched wall-block slab (wall-half has a painted
-  // red band that reads as a barrier bar) with square end posts.
+  // Per-cell low wall: a squashed wall-block slab spanning the cell, with square
+  // end posts at the open ends of a run only. Drag a run like a road.
   stone_wall: {
-    parts: [
-      { file: TOWN + "wall-block.glb", position: [0, 0, 0], scale: [2, 0.28, 0.14] },
-      { file: TOWN + "wall-block.glb", position: [-1, 0, 0], scale: [0.16, 0.38, 0.2] },
-      { file: TOWN + "wall-block.glb", position: [1, 0, 0], scale: [0.16, 0.38, 0.2] },
-    ],
-    fit: 0.98,
+    segment: {
+      along: [{ file: TOWN + "wall-block.glb", scale: [1, 0.4, 0.18] }],
+      cap: { file: TOWN + "wall-block.glb", scale: [0.2, 0.52, 0.24] },
+    },
+    fit: 1.0,
   },
 };
 
@@ -891,10 +935,17 @@ async function getContainer(file: string, scene: Scene) {
 
 function addModelFiles(files: Set<string>, def: ModelDef | undefined) {
   if (!def) return;
-  for (const part of def.parts ?? []) files.add(part.file);
+  for (const part of segmentSpecParts(def) ?? def.parts ?? []) files.add(part.file);
   for (const part of def.variants ?? []) files.add(part.file);
   for (const part of def.extendNegX ?? []) files.add(part.file);
   for (const part of def.extendPosX ?? []) files.add(part.file);
+}
+
+/** All distinct parts referenced by a segment spec (for loading/hasModel). */
+function segmentSpecParts(def: ModelDef): Part[] | null {
+  const s = def.segment;
+  if (!s) return null;
+  return [...(s.core ?? []), ...s.along, ...(s.cap ? [s.cap] : [])];
 }
 
 // glTF parsing and material conversion run on the main thread. Keep only a few
@@ -1041,7 +1092,7 @@ function instantiatePart(
 export function hasModel(buildingId: BuildingId) {
   const def = MODEL_MANIFEST[buildingId];
   if (!def) return false;
-  const parts = def.parts ?? def.variants ?? [];
+  const parts = segmentSpecParts(def) ?? def.parts ?? def.variants ?? [];
   return parts.length > 0 && parts.every((part) => containers.has(part.file));
 }
 
@@ -1070,10 +1121,15 @@ export function hasExtensions(buildingId: BuildingId) {
   return Boolean(def?.extendNegX || def?.extendPosX);
 }
 
+/** Whether this building is a drag-placed per-cell linear segment. */
+export function isSegment(buildingId: BuildingId) {
+  return MODEL_MANIFEST[buildingId]?.segment != null;
+}
+
 /** Whether this building's model reacts to abutting neighbors at all —
  * mapRenderer re-evaluates these origins whenever any tile changes. */
 export function reactsToNeighbors(buildingId: BuildingId) {
-  return hasExtensions(buildingId) || getBlendGroup(buildingId) != null;
+  return hasExtensions(buildingId) || getBlendGroup(buildingId) != null || isSegment(buildingId);
 }
 
 /** Move a part's faces along one local axis: faces with a target land exactly
@@ -1111,7 +1167,8 @@ export function instantiateBuilding(
   scene: Scene,
   rotation?: number, // player-chosen quarter turns; overrides seeded randomRotate
   extend?: { negX: boolean; posX: boolean }, // append extendNegX/PosX parts
-  blend?: BlendSides // local sides stretched to the footprint edge (row-houses)
+  blend?: BlendSides, // local sides stretched to the footprint edge (row-houses)
+  segmentMask?: SegmentMask // per-cell linear segment: build parts from neighbors
 ): BuildingModel | null {
   const def = MODEL_MANIFEST[buildingId];
   if (!def) return null;
@@ -1124,9 +1181,13 @@ export function instantiateBuilding(
   const roofTint = ROOF_PALETTE[(hash >> 7) % ROOF_PALETTE.length];
   const resolveTint = (tint?: string) =>
     tint === "facade" ? facadeTint : tint === "roof" ? roofTint : tint;
-  let parts = def.parts ?? (def.variants ? [def.variants[hash % def.variants.length]] : []);
-  if (extend?.negX && def.extendNegX) parts = [...parts, ...def.extendNegX];
-  if (extend?.posX && def.extendPosX) parts = [...parts, ...def.extendPosX];
+  let parts = def.segment
+    ? segmentParts(def.segment, segmentMask ?? { px: false, nx: false, pz: false, nz: false })
+    : def.parts ?? (def.variants ? [def.variants[hash % def.variants.length]] : []);
+  if (!def.segment) {
+    if (extend?.negX && def.extendNegX) parts = [...parts, ...def.extendNegX];
+    if (extend?.posX && def.extendPosX) parts = [...parts, ...def.extendPosX];
+  }
   if (parts.length === 0) return null;
 
   const root = new TransformNode(`model-${buildingId}-${gridPos.x}-${gridPos.y}`, scene);
@@ -1422,9 +1483,10 @@ export function createBuildingBatcher(
     rotation: number | undefined,
     extend: { negX: boolean; posX: boolean } | undefined,
     blend: BlendSides | undefined,
-    active: boolean
+    active: boolean,
+    segmentMask?: SegmentMask
   ): PlacedBuilding | null {
-    const model = instantiateBuilding(buildingId, footprint, gridPos, scene, rotation, extend, blend);
+    const model = instantiateBuilding(buildingId, footprint, gridPos, scene, rotation, extend, blend, segmentMask);
     if (!model) return null;
     model.root.position.x = worldX + model.offsetX;
     model.root.position.z = worldZ + model.offsetZ;

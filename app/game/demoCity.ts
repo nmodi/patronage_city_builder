@@ -73,6 +73,11 @@ export const LAYOUT: Array<[number, number, BuildingId, number?]> = [
   [57, 56, "olive_grove"],
   [58, 63, "rocks"], [62, 48, "boulder"],
 
+  // TEMP segment-render test: horizontal fence run, vertical wall run, L colonnade
+  [42, 54, "fence"], [43, 54, "fence"], [44, 54, "fence"], [45, 54, "fence"],
+  [42, 56, "stone_wall"], [42, 57, "stone_wall"], [42, 58, "stone_wall"], [42, 59, "stone_wall"],
+  [36, 58, "colonnade"], [37, 58, "colonnade"], [38, 58, "colonnade"], [39, 58, "colonnade"], [39, 59, "colonnade"], [39, 60, "colonnade"],
+
   // — North quarter (San Lorenzo): the avenue runs to a walled gate, with a
   //   cross street of housing blocks flanking it —
   ...road(38, 10, 40, 17, "avenue"), // avenue to the north gate

@@ -77,6 +77,7 @@ export interface BuildingMetadata {
   artistCapacity?: number; // how many artists this workshop can host
   artistType?: ArtistType; // workshops: the only artist type that founds/arrives here
   roadWidth?: number; // roads only: cells stamped perpendicular to the drag axis
+  linear?: boolean; // drag-placed like roads: each cell is an independent 1×1 segment tile
   paved?: boolean; // render a flagstone apron over the full footprint (joins plazas visually)
   supplies?: { artistType: ArtistType; capacity: number }; // supplier: N concurrently-working artists
 }
