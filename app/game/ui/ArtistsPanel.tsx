@@ -33,8 +33,6 @@ export function ArtistsPanel({ open, onToggle }: { open: boolean; onToggle: () =
     .sort();
   const supply = getSupply(tiles, artists);
 
-  if (workshops.length === 0) return null;
-
   return (
     <HudPanel
       icon={Sparkles}
@@ -44,11 +42,16 @@ export function ArtistsPanel({ open, onToggle }: { open: boolean; onToggle: () =
       header={
         <span className="flex items-center gap-1.5">
           <Sparkles className="h-3.5 w-3.5 text-sienna" />
-          Artists &amp; Workshops ({workshops.length})
+          Artists &amp; Workshops{workshops.length > 0 && ` (${workshops.length})`}
         </span>
       }
       className="flex max-h-[60vh] flex-col gap-2.5 overflow-y-auto"
     >
+        {workshops.length === 0 && (
+          <span className="text-sm text-ink-faint">
+            No workshops yet — build a Painter's or Sculptor's Workshop and artists will arrive.
+          </span>
+        )}
         {workshops.map((key) => {
           const members = artists.filter((a) => a.homeTileKey === key);
           const founder = members[0];
