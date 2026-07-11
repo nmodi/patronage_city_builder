@@ -4,7 +4,7 @@ import assert from "node:assert";
 
 import { generateWater, getWater, getWaterCells, type WaterBody } from "./water.ts";
 
-const GRID_SIZE = 80;
+const GRID_SIZE = 120;
 const CELL_SIZE = 0.5;
 const HALF_GRID = (GRID_SIZE * CELL_SIZE) / 2;
 

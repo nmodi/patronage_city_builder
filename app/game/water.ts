@@ -13,7 +13,7 @@
 // No runtime imports: water.check.ts runs this file under plain Node.
 
 // Mirrors ~/game/constants (duplicated so this file stays import-free).
-const GRID_SIZE = 80;
+const GRID_SIZE = 120;
 const CELL_SIZE = 0.5;
 const HALF_GRID = (GRID_SIZE * CELL_SIZE) / 2;
 

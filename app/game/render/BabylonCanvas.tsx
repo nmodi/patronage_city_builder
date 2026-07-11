@@ -68,14 +68,15 @@ export function BabylonCanvas() {
     scene.clearColor = Color4.FromColor3(Color3.FromHexString("#e9c98f"), 1);
     scene.fogMode = Scene.FOGMODE_LINEAR;
     scene.fogColor = Color3.FromHexString("#e9c98f");
-    scene.fogStart = 70;
-    scene.fogEnd = 95;
+    // Keep the fog ~10wu past max zoom (upperRadiusLimit) so the city never fogs out.
+    scene.fogStart = 90;
+    scene.fogEnd = 115;
 
     const camera = new ArcRotateCamera("camera", 0, 0, 10, Vector3.Zero(), scene);
     camera.setPosition(new Vector3(14, 12, 14));
     camera.fov = (50 * Math.PI) / 180;
     camera.lowerRadiusLimit = 3;
-    camera.upperRadiusLimit = 60;
+    camera.upperRadiusLimit = 80;
     camera.lowerBetaLimit = Math.PI / 3;
     camera.upperBetaLimit = Math.PI / 2 - 0.02;
     camera.inertia = 0.8;

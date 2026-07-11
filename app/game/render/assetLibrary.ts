@@ -1660,11 +1660,11 @@ export function scatterEnvironment(
   // Trees: singles plus loose clumps of 2-4 so the hills read as scrubby
   // groves rather than an evenly seeded park.
   let trees = 0;
-  for (let attempts = 0; trees < 260 && attempts < 1000; attempts += 1) {
+  for (let attempts = 0; trees < 330 && attempts < 1300; attempts += 1) {
     const p = ringPoint();
     if (!p) continue;
     const clump = rand() < 0.35 ? 2 + Math.floor(rand() * 3) : 1;
-    for (let i = 0; i < clump && trees < 260; i += 1) {
+    for (let i = 0; i < clump && trees < 330; i += 1) {
       const x = i === 0 ? p.x : p.x + (rand() - 0.5) * 7;
       const z = i === 0 ? p.z : p.z + (rand() - 0.5) * 7;
       if (Math.max(Math.abs(x), Math.abs(z)) < minDistance) continue;
@@ -1676,7 +1676,7 @@ export function scatterEnvironment(
   // Undergrowth: small sunken tree canopies read as round shrubs. The kit's
   // plant_bush* models splay like perched birds at hill distance — those stay
   // placeable up close but don't scatter.
-  for (let attempts = 0, n = 0; n < 150 && attempts < 600; attempts += 1) {
+  for (let attempts = 0, n = 0; n < 190 && attempts < 800; attempts += 1) {
     const p = ringPoint();
     if (!p) continue;
     place(SCATTER_OLIVE[Math.floor(rand() * SCATTER_OLIVE.length)], p.x, p.z, {
@@ -1685,7 +1685,7 @@ export function scatterEnvironment(
     });
     n += 1;
   }
-  for (let attempts = 0, n = 0; n < 60 && attempts < 250; attempts += 1) {
+  for (let attempts = 0, n = 0; n < 75 && attempts < 320; attempts += 1) {
     const p = ringPoint();
     if (!p) continue;
     const boulder = rand() < 0.25;
