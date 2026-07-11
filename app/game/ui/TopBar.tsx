@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Coins, Copy, Crown, Home, Info, Pause, Pencil, Play, RotateCcw, Settings, Sparkles, Store, Users } from "lucide-react";
+import { Check, Coins, Copy, Crown, Feather, Home, Info, Pause, Pencil, Play, RotateCcw, Settings, Store, Users } from "lucide-react";
 
 import { isDemo, useGameStore } from "~/stores/useGameStore";
 import { getWater, type WaterArchetype } from "~/game/water";
@@ -119,7 +119,7 @@ export function TopBar() {
           </div>
           <div className="flex items-center gap-6 border-l border-wood/50 pl-4">
             <ResourceStat icon={Coins} label="Florins" value={`${florins}ƒ`} iconClassName="text-prestige-gold" />
-            <ResourceStat icon={Sparkles} label="Inspiration" value={inspiration} iconClassName="text-sienna" />
+            <ResourceStat icon={Feather} label="Inspiration" value={inspiration} iconClassName="text-sienna" />
             <ResourceStat icon={Crown} label="Prestige" value={prestige} iconClassName="text-prestige-gold" />
             <PopulationStat population={population} housing={housing} amenities={amenities} />
           </div>

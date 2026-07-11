@@ -22,7 +22,7 @@ export function GameHUD() {
         <CommissionsPanel open={openPanel === "commissions"} onToggle={toggle("commissions")} />
         <GalleryPanel />
       </div>
-      <BuildingPalette />
+      <BuildingPalette hasOpenPanel={openPanel != null} onClosePanel={() => setOpenPanel(null)} />
       <BuildingTooltip />
       <RazeConfirm />
     </>

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
+import { X, type LucideIcon } from "lucide-react";
 
 interface PanelProps {
   header?: ReactNode;
@@ -75,7 +75,21 @@ export function HudPanel({
       </button>
       {open && (
         <div className={`absolute left-0 top-full mt-2 ${widthClass}`}>
-          <Panel header={header} className={className}>
+          <Panel
+            header={
+              <div className="flex items-center justify-between gap-2">
+                <span className="min-w-0 flex-1">{header}</span>
+                <button
+                  className="rounded-full p-1 text-ink-faint transition hover:bg-parchment-deep"
+                  onClick={onToggle}
+                  aria-label={`Close ${label}`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            }
+            className={className}
+          >
             {children}
           </Panel>
         </div>

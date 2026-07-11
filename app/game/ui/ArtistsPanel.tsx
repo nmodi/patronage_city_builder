@@ -1,4 +1,4 @@
-import { Hammer, Palette, Sparkles, type LucideIcon } from "lucide-react";
+import { Hammer, Paintbrush, Palette, type LucideIcon } from "lucide-react";
 
 import { useGameStore } from "~/stores/useGameStore";
 import { RANK_LABEL } from "~/game/artists";
@@ -14,7 +14,7 @@ const ARTIST_ICONS: Record<string, LucideIcon> = {
 };
 
 function ArtistThumb({ type }: { type?: string }) {
-  const Icon = (type && ARTIST_ICONS[type]) || Sparkles;
+  const Icon = (type && ARTIST_ICONS[type]) || Paintbrush;
   return (
     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-wood/50 bg-parchment-deep">
       <Icon className="h-5 w-5 text-ink-faint" strokeWidth={1.75} />
@@ -35,13 +35,12 @@ export function ArtistsPanel({ open, onToggle }: { open: boolean; onToggle: () =
 
   return (
     <HudPanel
-      icon={Sparkles}
+      icon={Paintbrush}
       open={open}
       onToggle={onToggle}
       label="Artists & Workshops"
       header={
         <span className="flex items-center gap-1.5">
-          <Sparkles className="h-3.5 w-3.5 text-sienna" />
           Artists &amp; Workshops{workshops.length > 0 && ` (${workshops.length})`}
         </span>
       }

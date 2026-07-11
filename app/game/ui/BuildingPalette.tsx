@@ -86,7 +86,13 @@ const BUILDING_ICONS: Record<BuildingId, LucideIcon> = {
   stone_wall: BrickWall,
 };
 
-export function BuildingPalette() {
+export function BuildingPalette({
+  hasOpenPanel,
+  onClosePanel,
+}: {
+  hasOpenPanel?: boolean;
+  onClosePanel?: () => void;
+}) {
   const selectedBuilding = useGameStore((s) => s.map.selectedBuilding);
   const setSelectedBuilding = useGameStore((s) => s.setSelectedBuilding);
   const florins = useGameStore((s) => s.florins);
@@ -102,6 +108,10 @@ export function BuildingPalette() {
       }
       if (openCategory) {
         setOpenCategory(null);
+        return true;
+      }
+      if (hasOpenPanel) {
+        onClosePanel?.();
         return true;
       }
       return false;
@@ -123,7 +133,7 @@ export function BuildingPalette() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("contextmenu", onContextMenu);
     };
-  }, [openCategory]);
+  }, [openCategory, hasOpenPanel, onClosePanel]);
 
   const openBuildings = openCategory ? (BUILDING_METADATA_BY_TYPE[openCategory] ?? []) : [];
   const selectedCategory = selectedBuilding
