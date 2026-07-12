@@ -9,10 +9,10 @@ import { OFFER_EXPIRY_MONTHS } from "~/game/commissions";
 import { createArtist } from "~/game/artists";
 import { generateSeed, pickCityName } from "~/game/seed";
 import { getWaterCells } from "~/game/water";
-import { computePlazaConnectivity, PLAZA_CONNECTION_BONUS } from "~/game/connectivity";
 import { getSupply } from "~/game/materials";
+import { getAmenityCapacity, getHousingCapacity } from "~/game/metrics";
 import { createTick } from "~/game/tick";
-import { BASE_POPULATION_CAP, BASE_TICK_INTERVAL, GRID_SIZE } from "~/game/constants";
+import { BASE_TICK_INTERVAL, GRID_SIZE } from "~/game/constants";
 
 // The demolition tool rides the building-selection slot: camera-drag detach,
 // grid visibility, and the palette's cancel keys all treat it like placement.
@@ -318,25 +318,11 @@ const initializer: StateCreator<GameState> = (set, get) => ({
   },
 
   getHousing: () => {
-    const tiles = get().map.tiles;
-    // Plaza-connected homes hold more (Phase 10) — same strength map as the tick.
-    const connected = computePlazaConnectivity(tiles);
-    return Object.entries(tiles).reduce((total, [key, tile]) => {
-      if (!tile.isOrigin) return total;
-      const housing = BUILDING_METADATA_BY_ID[tile.buildingId]?.housing ?? 0;
-      return total + Math.round(housing * (1 + PLAZA_CONNECTION_BONUS * (connected.get(key) ?? 0)));
-    }, 0);
+    return getHousingCapacity(get().map.tiles);
   },
 
-  // Mirrors the tick's amenity ceiling (active service buildings, plaza-boosted).
   getAmenities: () => {
-    const tiles = get().map.tiles;
-    const connected = computePlazaConnectivity(tiles);
-    return Object.entries(tiles).reduce((total, [key, tile]) => {
-      if (!tile.isOrigin || !tile.isActive) return total;
-      const base = BUILDING_METADATA_BY_ID[tile.buildingId]?.amenities ?? 0;
-      return total + Math.round(base * (1 + PLAZA_CONNECTION_BONUS * (connected.get(key) ?? 0)));
-    }, BASE_POPULATION_CAP);
+    return getAmenityCapacity(get().map.tiles);
   },
 
   getCalendarLabel: () => formatMonth(get().time.tickCount),

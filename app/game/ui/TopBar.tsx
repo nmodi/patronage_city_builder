@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Check, Coins, Copy, Crown, Feather, Home, Info, Pause, Pencil, Play, RotateCcw, Settings, Store, Users } from "lucide-react";
 
 import { isDemo, useGameStore } from "~/stores/useGameStore";
 import { getWater, type WaterArchetype } from "~/game/water";
 import { BASE_TICK_INTERVAL, GAME_SPEED_MULTIPLIERS } from "~/game/constants";
+import { computeCityMetrics } from "~/game/metrics";
 
 const ARCHETYPE_LABELS: Record<WaterArchetype, string> = {
   dry: "Dry plain",
@@ -26,8 +27,8 @@ export function TopBar() {
   const tickInterval = useGameStore((s) => s.tickInterval);
   const setTickInterval = useGameStore((s) => s.setTickInterval);
   const population = useGameStore((s) => s.population);
-  const housing = useGameStore((s) => s.getHousing());
-  const amenities = useGameStore((s) => s.getAmenities());
+  const tiles = useGameStore((s) => s.map.tiles);
+  const { housing, amenities } = useMemo(() => computeCityMetrics(tiles), [tiles]);
   const resetGame = useGameStore((s) => s.resetGame);
   const cityName = useGameStore((s) => s.cityName);
   const setCityName = useGameStore((s) => s.setCityName);

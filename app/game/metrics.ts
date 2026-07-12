@@ -1,0 +1,32 @@
+import { BUILDING_METADATA_BY_ID } from "./buildings.ts";
+import { BASE_POPULATION_CAP } from "./constants.ts";
+import { computePlazaConnectivity, PLAZA_CONNECTION_BONUS } from "./connectivity.ts";
+import type { TileMap } from "./grid.ts";
+
+export interface CityMetrics {
+  housing: number;
+  amenities: number;
+}
+
+/** Population caps derived from the current map, using one shared plaza calculation. */
+export function computeCityMetrics(
+  tiles: TileMap,
+  connected = computePlazaConnectivity(tiles)
+): CityMetrics {
+  let housing = 0;
+  let amenities = BASE_POPULATION_CAP;
+
+  for (const [key, tile] of Object.entries(tiles)) {
+    if (!tile.isOrigin) continue;
+    const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
+    if (!metadata) continue;
+    const boost = 1 + PLAZA_CONNECTION_BONUS * (connected.get(key) ?? 0);
+    housing += Math.round((metadata.housing ?? 0) * boost);
+    if (tile.isActive) amenities += Math.round((metadata.amenities ?? 0) * boost);
+  }
+
+  return { housing, amenities };
+}
+
+export const getHousingCapacity = (tiles: TileMap) => computeCityMetrics(tiles).housing;
+export const getAmenityCapacity = (tiles: TileMap) => computeCityMetrics(tiles).amenities;

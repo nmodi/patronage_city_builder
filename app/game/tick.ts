@@ -2,11 +2,11 @@ import type { StateCreator } from "zustand";
 
 import type { GameState } from "~/stores/useGameStore";
 import { BUILDING_METADATA_BY_ID } from "~/game/buildings";
-import { BASE_POPULATION_CAP } from "~/game/constants";
 import { allocateWorkers, staffingEfficiency, type StaffableBuilding } from "~/game/workers";
 import { maybeArriveArtist, progressArtworks, type WorkshopSlot } from "~/game/artists";
 import { maybeOfferCommission, reconcileCommissions } from "~/game/commissions";
 import { getSupply } from "~/game/materials";
+import { computeCityMetrics } from "~/game/metrics";
 import { computePlazaConnectivity, PLAZA_CONNECTION_BONUS } from "~/game/connectivity";
 
 type StoreSet = Parameters<StateCreator<GameState>>[0];
@@ -75,13 +75,8 @@ export const createTick = (set: StoreSet, get: StoreGet) =>
     // Population drifts one per month toward min(housing, amenities). Staffed
     // service buildings raise the ceiling past the unserviced base — the doc's
     // "services unlock population thresholds", no supply chains.
-    let amenities = BASE_POPULATION_CAP;
-    for (const [key, tile] of Object.entries(updatedTiles)) {
-      if (!tile.isOrigin || !tile.isActive) continue;
-      const base = BUILDING_METADATA_BY_ID[tile.buildingId]?.amenities ?? 0;
-      amenities += Math.round(base * plazaBoost(key));
-    }
-    const populationCap = Math.min(state.getHousing(), amenities);
+    const { housing, amenities } = computeCityMetrics(updatedTiles, connected);
+    const populationCap = Math.min(housing, amenities);
     const population = state.population + Math.sign(populationCap - state.population);
 
     // Staffing past the minimum boosts output linearly, up to +50% at maxWorkers.
