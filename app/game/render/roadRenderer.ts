@@ -9,6 +9,7 @@ import type { Scene } from "@babylonjs/core/scene";
 import { CELL_SIZE } from "~/game/constants";
 import { gridToWorld, type Tile, type TileMap } from "~/game/grid";
 import { getRoadMaterial } from "./paths";
+import { prepareThinInstanceHost } from "./thinInstanceHost";
 
 type RoadBatch = { mesh: Mesh; tiles: Map<string, Tile>; dirty: boolean };
 
@@ -17,7 +18,7 @@ export function createRoadRenderer(scene: Scene) {
   function createRoadBatch(name: string): RoadBatch {
     const mesh = MeshBuilder.CreateGround(name, { width: CELL_SIZE, height: CELL_SIZE }, scene);
     mesh.material = getRoadMaterial(scene);
-    mesh.isPickable = false;
+    prepareThinInstanceHost(mesh);
     mesh.setEnabled(false);
     return { mesh, tiles: new Map(), dirty: false };
   }
@@ -35,7 +36,7 @@ export function createRoadRenderer(scene: Scene) {
     scene
   );
   parapets.material = parapetMaterial;
-  parapets.isPickable = false;
+  prepareThinInstanceHost(parapets);
   parapets.setEnabled(false);
 
   function update(key: string, previous?: Tile, next?: Tile) {
