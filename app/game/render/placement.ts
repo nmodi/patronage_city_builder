@@ -189,15 +189,6 @@ export function createPlacementController(scene: Scene) {
     return positions;
   }
 
-  // A cell already carrying the same run may be overlapped (that's how stretches
-  // join); only foreign tiles block. Roads join any road width; linear
-  // decorations join only their own kind — and water blocks everything but
-  // bridges (mirrors the store's placeTiles gate). Returns the cells that still
-  // need placing (and paying for), or null if the stretch is blocked or unaffordable.
-  function planRoadStretch(state: GameState, positions: GridPos[], buildingId: BuildingId) {
-    return planLinearPlacement(state, positions, buildingId)?.positions ?? null;
-  }
-
   function ensureRoadPreviewCount(count: number) {
     while (roadPreviewMeshes.length > count) {
       roadPreviewMeshes.pop()?.dispose();
@@ -232,7 +223,8 @@ export function createPlacementController(scene: Scene) {
   function updateRoadPlacement(state: GameState, buildingId: BuildingId, currentPosition: GridPos) {
     const width = BUILDING_METADATA_BY_ID[buildingId]?.roadWidth ?? 1;
     const positions = buildRoadStretch(roadAnchor ?? currentPosition, currentPosition, width);
-    const newCells = planRoadStretch(state, positions, buildingId);
+    // Cells still needing placing (and paying for); null = blocked or unaffordable.
+    const newCells = planLinearPlacement(state, positions, buildingId)?.positions ?? null;
     updateRoadPreview(positions, newCells !== null);
 
     if (!pendingClick) return;
