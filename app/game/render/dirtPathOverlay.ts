@@ -253,4 +253,3 @@ export function createDirtPathOverlay(scene: Scene) {
 
   return { update, process, dispose };
 }
-
