@@ -30,8 +30,8 @@ export function CommissionsPanel({ open, onToggle }: { open: boolean; onToggle: 
   // supply not at capacity.
   const eligibleWorkshops = (c: Commission) =>
     [...founders.entries()]
-      .filter(([key, founder]) =>
-        canAssignCommission(c, key, founder, tiles, supply[founder.type])
+      .filter(([, founder]) =>
+        canAssignCommission(c, founder, tiles, supply[founder.type])
       )
       .sort(([a], [b]) => a.localeCompare(b));
 

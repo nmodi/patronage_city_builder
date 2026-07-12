@@ -52,31 +52,31 @@ const availableSupply: MaterialSupply = {
   const commission = offer();
   const founder = painter();
   const tiles: TileMap = { "5,5": homeTile("workshop") };
-  assert.equal(canAssignCommission(commission, "5,5", founder, tiles, availableSupply), true);
+  assert.equal(canAssignCommission(commission, founder, tiles, availableSupply), true);
   assert.equal(
-    canAssignCommission({ ...commission, workshopKey: "5,5" }, "5,5", founder, tiles, availableSupply),
+    canAssignCommission({ ...commission, workshopKey: "5,5" }, founder, tiles, availableSupply),
     false
   );
-  assert.equal(canAssignCommission(commission, "5,5", undefined, tiles, availableSupply), false);
+  assert.equal(canAssignCommission(commission, undefined, tiles, availableSupply), false);
   assert.equal(
-    canAssignCommission(commission, "5,5", { ...founder, type: "sculptor" }, tiles, availableSupply),
-    false
-  );
-  assert.equal(
-    canAssignCommission(commission, "5,5", { ...founder, workProgress: 0 }, tiles, availableSupply),
-    false
-  );
-  assert.equal(canAssignCommission(commission, "5,5", founder, {}, availableSupply), false);
-  assert.equal(
-    canAssignCommission(commission, "5,5", founder, { "5,5": homeTile("workshop", false) }, availableSupply),
+    canAssignCommission(commission, { ...founder, type: "sculptor" }, tiles, availableSupply),
     false
   );
   assert.equal(
-    canAssignCommission(commission, "5,5", founder, { "5,5": homeTile("cottage") }, availableSupply),
+    canAssignCommission(commission, { ...founder, workProgress: 0 }, tiles, availableSupply),
+    false
+  );
+  assert.equal(canAssignCommission(commission, founder, {}, availableSupply), false);
+  assert.equal(
+    canAssignCommission(commission, founder, { "5,5": homeTile("workshop", false) }, availableSupply),
     false
   );
   assert.equal(
-    canAssignCommission(commission, "5,5", founder, tiles, {
+    canAssignCommission(commission, founder, { "5,5": homeTile("cottage") }, availableSupply),
+    false
+  );
+  assert.equal(
+    canAssignCommission(commission, founder, tiles, {
       capacity: 3,
       inUse: 3,
       allowed: new Set(),

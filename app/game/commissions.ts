@@ -33,18 +33,17 @@ export const REQUESTERS: { name: string; mix: RewardMix }[] = [
   { name: "The Silk Guild", mix: "mixed" },
 ];
 
-/** Shared authoritative guard for assigning an open commission to a workshop. */
+/** Shared authoritative guard for assigning an open commission to a founder's workshop. */
 export function canAssignCommission(
   commission: Commission,
-  workshopKey: string,
   founder: Artist | undefined,
   tiles: TileMap,
   supply: MaterialSupply | undefined
 ): boolean {
-  if (commission.workshopKey || !founder || founder.homeTileKey !== workshopKey) return false;
+  if (commission.workshopKey || !founder) return false;
   if (founder.type !== commission.artistType || founder.workProgress != null) return false;
 
-  const tile = tiles[workshopKey];
+  const tile = tiles[founder.homeTileKey];
   if (!tile?.isOrigin || !tile.isActive) return false;
   const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
   if (metadata?.artistCapacity == null || (metadata.artistType ?? "painter") !== founder.type) {
