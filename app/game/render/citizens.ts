@@ -1,13 +1,14 @@
-import { Color3 } from "@babylonjs/core/Maths/math.color";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
-import { Mesh } from "@babylonjs/core/Meshes/mesh";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import type { Scene } from "@babylonjs/core/scene";
 
 import { BUILDING_METADATA_BY_ID } from "~/game/buildings";
 import { BASE_TICK_INTERVAL, CELL_SIZE } from "~/game/constants";
 import { useGameStore, type Tile } from "~/stores/useGameStore";
 import { gridToWorld } from "./mapRenderer";
+import {
+  createPrimitiveFigureFactory,
+  type CitizenFigure,
+  type FigureLocomotion,
+} from "./citizenFigures";
 
 // Cosmetic wanderers (design doc G5). Pure ambience: no tie to population,
 // no sim meaning. They random-walk the tile network below.
@@ -18,21 +19,22 @@ const TILES_PER_CITIZEN = 8;
 // ponytail: one foot height for all surfaces — road quads sit at 0.01, plaza/market
 // pads at ~0.02, and the couple-centimeter hover is invisible at this scale.
 const FOOT_Y = 0.03;
-// ponytail: calibration knob — the kit has no humans, so person size is tuned by eye
-// against kit anchors (townhouse story, lantern pole). Uniform, so feet stay at y=0.
-const CITIZEN_SCALE = 1.75;
-
-// Renaissance-muted robes: terracotta, brown, tan, ivory, sage.
-const PALETTE = ["#a8503a", "#7a5c44", "#b3936a", "#ded3ba", "#8c9178"];
+// World units per full two-step gait cycle; the figure's bob/sway advances by
+// distance travelled, so it tracks walk speed and sim speed for free.
+const STRIDE_LEN = 0.22;
+// Yaw smoothing rate (per second) — a 90° grid turn resolves in ~0.2s.
+const TURN_RATE = 12;
 
 type GridPos = { x: number; y: number };
 
 type Citizen = {
-  mesh: Mesh;
+  figure: CitizenFigure;
   from: GridPos;
   to: GridPos;
   t: number; // 0..1 progress from `from` to `to`
   speed: number; // world units per second
+  yaw: number; // current smoothed heading, radians
+  phase: number; // gait stride phase, radians
 };
 
 const key = (p: GridPos) => `${p.x},${p.y}`;
@@ -48,29 +50,7 @@ function isFountainCell(tile: Tile) {
 }
 
 export function createCitizens(scene: Scene) {
-  const materials = PALETTE.map((hex, i) => {
-    const mat = new StandardMaterial(`citizen-mat-${i}`, scene);
-    mat.diffuseColor = Color3.FromHexString(hex);
-    mat.specularColor = Color3.Black();
-    return mat;
-  });
-
-  // One low-poly meeple — tapered robe + head, flat shaded, cloned per citizen.
-  // Rotationally symmetric on purpose: no need to face the walk direction.
-  const body = MeshBuilder.CreateCylinder(
-    "citizen-body",
-    { height: 0.2, diameterBottom: 0.13, diameterTop: 0.07, tessellation: 6 },
-    scene
-  );
-  body.position.y = 0.1;
-  const head = MeshBuilder.CreateSphere("citizen-head", { diameter: 0.09, segments: 3 }, scene);
-  head.position.y = 0.24;
-  const template = Mesh.MergeMeshes([body, head], true, false)!;
-  template.name = "citizen-template";
-  template.convertToFlatShadedMesh();
-  template.scaling.setAll(CITIZEN_SCALE);
-  template.isPickable = false;
-  template.setEnabled(false);
+  const factory = createPrimitiveFigureFactory(scene);
 
   let walkable = new Set<string>();
   let spawnTiles: GridPos[] = [];
@@ -91,13 +71,19 @@ export function createCitizens(scene: Scene) {
     citizen.t = 0;
   }
 
+  // Snaps a citizen onto a tile and poses its figure immediately — spawns while
+  // paused must not sit at the origin, and yaw is snapped (not smoothed) so a
+  // respawn doesn't pirouette from its old heading.
   function placeAt(citizen: Citizen, tile: GridPos) {
     citizen.from = tile;
     citizen.to = tile;
     citizen.t = 1; // forces a destination pick on the next frame
-    // Position now, not on the next frame — spawns while paused must not sit at origin.
+    citizen.phase = Math.random() * Math.PI * 2; // desync the crowd's gait
     const p = gridToWorld(tile.x, tile.y);
-    citizen.mesh.position.set(p.x, FOOT_Y, p.z);
+    citizen.figure.update(
+      { x: p.x, y: FOOT_Y, z: p.z, yaw: citizen.yaw, stridePhase: citizen.phase, moving: false, speed: 0 },
+      0
+    );
   }
 
   function randomTile() {
@@ -105,16 +91,14 @@ export function createCitizens(scene: Scene) {
   }
 
   function spawn(): Citizen {
-    const mesh = template.clone(`citizen-${citizens.length}`);
-    mesh.setEnabled(true);
-    mesh.isPickable = false;
-    mesh.material = materials[Math.floor(Math.random() * materials.length)];
     const citizen: Citizen = {
-      mesh,
+      figure: factory.create(),
       from: { x: 0, y: 0 },
       to: { x: 0, y: 0 },
       t: 1,
       speed: 0.3 + Math.random() * 0.2, // a stroll, with a little variety
+      yaw: Math.random() * Math.PI * 2,
+      phase: 0,
     };
     placeAt(citizen, randomTile());
     return citizen;
@@ -135,7 +119,32 @@ export function createCitizens(scene: Scene) {
       const a = gridToWorld(citizen.from.x, citizen.from.y);
       const b = gridToWorld(citizen.to.x, citizen.to.y);
       const t = Math.min(citizen.t, 1);
-      citizen.mesh.position.set(a.x + (b.x - a.x) * t, FOOT_Y, a.z + (b.z - a.z) * t);
+      const x = a.x + (b.x - a.x) * t;
+      const z = a.z + (b.z - a.z) * t;
+
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const moving = dx !== 0 || dz !== 0;
+      if (moving) {
+        // Smoothly turn toward the travel direction (shortest angle).
+        const targetYaw = Math.atan2(dx, dz);
+        let d = targetYaw - citizen.yaw;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        citizen.yaw += d * Math.min(1, dt * TURN_RATE);
+        // Advance the gait by distance so bob/sway match the walk speed.
+        citizen.phase += citizen.speed * dt * ((Math.PI * 2) / STRIDE_LEN);
+      }
+
+      const loco: FigureLocomotion = {
+        x,
+        y: FOOT_Y,
+        z,
+        yaw: citizen.yaw,
+        stridePhase: citizen.phase,
+        moving,
+        speed: citizen.speed,
+      };
+      citizen.figure.update(loco, dt);
     }
   });
 
@@ -150,7 +159,7 @@ export function createCitizens(scene: Scene) {
     }
 
     const desired = Math.min(MAX_CITIZENS, Math.ceil(spawnTiles.length / TILES_PER_CITIZEN));
-    while (citizens.length > desired) citizens.pop()!.mesh.dispose();
+    while (citizens.length > desired) citizens.pop()!.figure.dispose();
     while (citizens.length < desired) citizens.push(spawn());
 
     // Anyone standing on a demolished tile respawns somewhere walkable.
@@ -163,10 +172,9 @@ export function createCitizens(scene: Scene) {
 
   function dispose() {
     scene.onBeforeRenderObservable.remove(observer);
-    for (const citizen of citizens) citizen.mesh.dispose();
+    for (const citizen of citizens) citizen.figure.dispose();
     citizens.length = 0;
-    template.dispose();
-    for (const mat of materials) mat.dispose();
+    factory.dispose();
   }
 
   return { sync, dispose };
