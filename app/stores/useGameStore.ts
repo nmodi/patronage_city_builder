@@ -3,14 +3,15 @@ import type { StateCreator } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 
 import type { Artist, Artwork, Commission } from "~/game/types";
-import { BUILDING_METADATA_BY_ID, rotatedFootprint, type BuildingId } from "~/game/buildings";
+import type { BuildingId } from "~/game/buildings";
 import type { GridPos, Tile, TileMap } from "~/game/grid";
 import { planPlacement } from "~/game/placementRules";
-import { canAssignCommission, OFFER_EXPIRY_MONTHS } from "~/game/commissions";
+import { canAssignCommission } from "~/game/commissions";
 import { createArtist } from "~/game/artists";
 import { generateSeed, pickCityName } from "~/game/seed";
 import { getSupply } from "~/game/materials";
 import { getAmenityCapacity, getHousingCapacity } from "~/game/metrics";
+import { razeBuilding } from "~/game/raze";
 import { migrateSave, SAVE_VERSION } from "~/game/saveMigration";
 import { advanceTick } from "~/game/tick";
 import { BASE_TICK_INTERVAL } from "~/game/constants";
@@ -231,50 +232,13 @@ const initializer: StateCreator<GameState> = (set, get) => ({
 
   removeTile: (position) =>
     set((s) => {
-      const newTiles = { ...s.map.tiles };
-      const tile = newTiles[`${position.x},${position.y}`];
-      if (!tile) {
-        return s;
-      }
-      const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
-      const originX = tile.origin.x;
-      const originY = tile.origin.y;
-      const { width, depth } = metadata
-        ? rotatedFootprint(metadata, tile.rotation)
-        : { width: 1, depth: 1 };
-
-      for (let dx = 0; dx < width; dx += 1) {
-        for (let dy = 0; dy < depth; dy += 1) {
-          const key = `${originX + dx},${originY + dy}`;
-          const cell = newTiles[key];
-          // Only clear this building's own cells — an overlapping decoration
-          // (or the building it overlaps) keeps its claim.
-          if (cell && cell.origin.x === originX && cell.origin.y === originY) {
-            delete newTiles[key];
-          }
-        }
-      }
-
-      // Razing salvages half the build cost. Homed artists depart now rather
-      // than waiting for the tick's prune (keeps the roster honest while
-      // paused, and a same-origin rebuild founds a fresh artist), and any
-      // commission worked here re-opens — same shape as reconcileCommissions.
-      const originKey = `${originX},${originY}`;
-      const evicting = s.artists.some((a) => a.homeTileKey === originKey);
-      const orphaned = s.commissions.some((c) => c.workshopKey === originKey);
+      const next = razeBuilding(s, position);
+      if (!next) return s;
       return {
-        florins: s.florins + Math.floor((metadata?.baseCost ?? 0) / 2),
-        ...(evicting ? { artists: s.artists.filter((a) => a.homeTileKey !== originKey) } : {}),
-        ...(orphaned
-          ? {
-              commissions: s.commissions.map((c) =>
-                c.workshopKey === originKey
-                  ? { ...c, workshopKey: undefined, expiresTick: s.time.tickCount + OFFER_EXPIRY_MONTHS }
-                  : c
-              ),
-            }
-          : {}),
-        map: { ...s.map, tiles: newTiles },
+        florins: next.florins,
+        artists: next.artists,
+        commissions: next.commissions,
+        map: { ...s.map, tiles: next.tiles },
       };
     }),
 

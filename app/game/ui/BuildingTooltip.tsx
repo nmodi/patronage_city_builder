@@ -7,6 +7,7 @@ import {
   PLAZA_IDS,
 } from "~/game/connectivity";
 import { blockedReason, getSupply, MATERIAL_BY_ARTIST_TYPE } from "~/game/materials";
+import { getRazeSalvage } from "~/game/raze";
 import type { BuildingMetadata } from "~/game/types";
 import { staffingEfficiency } from "~/game/workers";
 import { RAZE_TOOL, useGameStore } from "~/stores/useGameStore";
@@ -151,7 +152,7 @@ export function BuildingTooltip() {
         )}
         {isRazing && (
           <div className="mt-1 text-sm font-semibold text-sienna">
-            Click to raze — salvage {Math.floor(metadata.baseCost / 2)}ƒ
+            Click to raze — salvage {getRazeSalvage(tile.buildingId)}ƒ
           </div>
         )}
       </div>

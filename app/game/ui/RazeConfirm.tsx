@@ -1,4 +1,5 @@
 import { BUILDING_METADATA_BY_ID } from "~/game/buildings";
+import { getRazeImpact, getRazeSalvage } from "~/game/raze";
 import { useGameStore } from "~/stores/useGameStore";
 import { Panel } from "./Panel";
 
@@ -12,14 +13,16 @@ export function RazeConfirm() {
   const removeTile = useGameStore((s) => s.removeTile);
   const tile = useGameStore((s) => (s.razeTarget ? s.map.tiles[s.razeTarget] : undefined));
   const artistCount = useGameStore(
-    (s) => s.artists.filter((a) => a.homeTileKey === s.razeTarget).length
+    (s) => getRazeImpact(s.artists, s.commissions, s.razeTarget).artistCount
   );
-  const commission = useGameStore((s) => s.commissions.find((c) => c.workshopKey === s.razeTarget));
+  const commission = useGameStore(
+    (s) => getRazeImpact(s.artists, s.commissions, s.razeTarget).commission
+  );
 
   if (!razeTarget || !tile) return null;
   const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
   if (!metadata) return null;
-  const salvage = Math.floor(metadata.baseCost / 2);
+  const salvage = getRazeSalvage(tile.buildingId);
 
   return (
     <div className="fixed left-1/2 top-1/3 z-50 -translate-x-1/2">

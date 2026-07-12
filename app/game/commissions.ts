@@ -11,6 +11,15 @@ export const COMMISSION_OFFER_CHANCE = 0.15; // per month, when under the cap
 export const MAX_OPEN_OFFERS = 3;
 export const OFFER_EXPIRY_MONTHS = 12;
 
+/** Return an assigned commission to the open pool with a fresh expiry. */
+export function reopenCommission(commission: Commission, currentTick: number): Commission {
+  return {
+    ...commission,
+    workshopKey: undefined,
+    expiresTick: currentTick + OFFER_EXPIRY_MONTHS,
+  };
+}
+
 // ponytail: requesters are flavor strings on system-generated offers — a
 // faction system (and unlock buildings like Cathedral/Guildhall gating types)
 // takes over offer generation later.
@@ -114,7 +123,7 @@ export function reconcileCommissions(
   const next: Commission[] = [];
   for (const c of commissions) {
     if (c.workshopKey && !workshopKeys.has(c.workshopKey)) {
-      next.push({ ...c, workshopKey: undefined, expiresTick: currentTick + OFFER_EXPIRY_MONTHS });
+      next.push(reopenCommission(c, currentTick));
       changed = true;
       continue;
     }

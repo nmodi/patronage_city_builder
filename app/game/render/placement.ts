@@ -12,6 +12,7 @@ import { BUILDING_METADATA_BY_ID, rotatedFootprint, type BuildingId } from "~/ga
 import { CELL_SIZE } from "~/game/constants";
 import { gridToWorld, worldToGrid, type GridPos } from "~/game/grid";
 import { planLinearPlacement, planPlacement } from "~/game/placementRules";
+import { getRazeImpact } from "~/game/raze";
 import { RAZE_TOOL, useGameStore, type GameState } from "~/stores/useGameStore";
 import {
   instantiateBuilding,
@@ -293,10 +294,8 @@ export function createPlacementController(scene: Scene) {
 
       if (tile && (pendingClick || mouseHeld)) {
         const originKey = `${tile.origin.x},${tile.origin.y}`;
-        const hurts =
-          state.artists.some((a) => a.homeTileKey === originKey) ||
-          state.commissions.some((c) => c.workshopKey === originKey);
-        if (hurts) {
+        const impact = getRazeImpact(state.artists, state.commissions, originKey);
+        if (impact.needsConfirmation) {
           // Costly demolitions confirm via the RazeConfirm popover — and only
           // on a deliberate click; a drag-sweep passes over them.
           if (pendingClick) state.setRazeTarget(originKey);
