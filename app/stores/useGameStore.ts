@@ -5,14 +5,14 @@ import { createJSONStorage, persist, type StateStorage } from "zustand/middlewar
 import type { Artist, Artwork, Commission } from "~/game/types";
 import { BUILDING_METADATA_BY_ID, rotatedFootprint, type BuildingId } from "~/game/buildings";
 import type { GridPos, Tile, TileMap } from "~/game/grid";
+import { planPlacement } from "~/game/placementRules";
 import { OFFER_EXPIRY_MONTHS } from "~/game/commissions";
 import { createArtist } from "~/game/artists";
 import { generateSeed, pickCityName } from "~/game/seed";
-import { getWaterCells } from "~/game/water";
 import { getSupply } from "~/game/materials";
 import { getAmenityCapacity, getHousingCapacity } from "~/game/metrics";
 import { createTick } from "~/game/tick";
-import { BASE_TICK_INTERVAL, GRID_SIZE } from "~/game/constants";
+import { BASE_TICK_INTERVAL } from "~/game/constants";
 
 // The demolition tool rides the building-selection slot: camera-drag detach,
 // grid visibility, and the palette's cancel keys all treat it like placement.
@@ -158,58 +158,12 @@ const initializer: StateCreator<GameState> = (set, get) => ({
   placeTiles: (positions, buildingId, rotation) => {
     let placed = false;
     set((s) => {
-      const metadata = BUILDING_METADATA_BY_ID[buildingId];
-      if (!metadata || positions.length === 0) {
-        return s;
-      }
+      const plan = planPlacement(s, positions, buildingId, rotation);
+      if (!plan) return s;
+      const { metadata, footprint, freeCells, totalCost } = plan;
       const type = metadata.type;
-      const { baseCost: cost } = metadata;
-      const { width, depth } = rotatedFootprint(metadata, rotation);
+      const { width, depth } = footprint;
       const workersRequired = metadata.workersRequired ?? 0;
-      const batchCells = new Set<string>();
-      // Water blocks every free cell it covers — bridges are the one structure
-      // allowed onto it (G5). Occupied cells were already validated when their
-      // building was placed, so only the free-cell path checks water.
-      const water = getWaterCells(s.mapSeed);
-
-      for (const position of positions) {
-        if (
-          position.x < 0 ||
-          position.y < 0 ||
-          position.x + width > GRID_SIZE ||
-          position.y + depth > GRID_SIZE
-        ) {
-          return s;
-        }
-
-        // Decorations may overlap existing buildings (a colonnade against a
-        // palazzo); they claim only the free cells. The origin cell must be
-        // free — it anchors rendering and demolition.
-        const canOverlap = type === "decoration";
-        for (let dx = 0; dx < width; dx += 1) {
-          for (let dy = 0; dy < depth; dy += 1) {
-            const key = `${position.x + dx},${position.y + dy}`;
-            if (batchCells.has(key)) {
-              return s;
-            }
-            if (s.map.tiles[key]) {
-              if (!canOverlap || (dx === 0 && dy === 0)) {
-                return s;
-              }
-              continue;
-            }
-            if (buildingId !== "bridge" && water.has(key)) {
-              return s;
-            }
-            batchCells.add(key);
-          }
-        }
-      }
-
-      const totalCost = cost * positions.length;
-      if (s.florins < totalCost) {
-        return s;
-      }
 
       const newTiles = { ...s.map.tiles };
       const founders: Artist[] = [];
@@ -234,7 +188,7 @@ const initializer: StateCreator<GameState> = (set, get) => ({
             const cellX = originX + dx;
             const cellY = originY + dy;
             const key = `${cellX},${cellY}`;
-            if (newTiles[key]) continue; // overlapped cell keeps its owner
+            if (!freeCells.has(key)) continue; // overlapped cell keeps its owner
             newTiles[key] = {
               buildingId,
               type,
