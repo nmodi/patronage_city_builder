@@ -2,6 +2,7 @@ import { Clock, Coins, Crown, Scroll } from "lucide-react";
 
 import { useGameStore } from "~/stores/useGameStore";
 import { getSupply } from "~/game/materials";
+import { canAssignCommission } from "~/game/commissions";
 import { HudPanel } from "./Panel";
 import type { Commission } from "~/game/types";
 
@@ -39,12 +40,9 @@ export function CommissionsPanel({ open, onToggle }: { open: boolean; onToggle: 
   // supply not at capacity.
   const eligibleWorkshops = (c: Commission) =>
     [...founders.entries()]
-      .filter(([key, founder]) => {
-        if (founder.type !== c.artistType || founder.workProgress != null) return false;
-        if (!tiles[key]?.isActive) return false;
-        const s = supply[founder.type];
-        return !(s && s.inUse >= s.capacity);
-      })
+      .filter(([key, founder]) =>
+        canAssignCommission(c, key, founder, tiles, supply[founder.type])
+      )
       .sort(([a], [b]) => a.localeCompare(b));
 
   return (

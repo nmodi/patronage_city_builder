@@ -6,7 +6,7 @@ import type { Artist, Artwork, Commission } from "~/game/types";
 import { BUILDING_METADATA_BY_ID, rotatedFootprint, type BuildingId } from "~/game/buildings";
 import type { GridPos, Tile, TileMap } from "~/game/grid";
 import { planPlacement } from "~/game/placementRules";
-import { OFFER_EXPIRY_MONTHS } from "~/game/commissions";
+import { canAssignCommission, OFFER_EXPIRY_MONTHS } from "~/game/commissions";
 import { createArtist } from "~/game/artists";
 import { generateSeed, pickCityName } from "~/game/seed";
 import { getSupply } from "~/game/materials";
@@ -121,14 +121,11 @@ const initializer: StateCreator<GameState> = (set, get) => ({
   assignCommission: (commissionId, workshopKey) =>
     set((s) => {
       const commission = s.commissions.find((c) => c.id === commissionId);
-      if (!commission || commission.workshopKey) return s;
+      if (!commission) return s;
       // Founder = first artist homed at the workshop; work is tracked on them.
       const founder = s.artists.find((a) => a.homeTileKey === workshopKey);
-      if (!founder || founder.type !== commission.artistType || founder.workProgress != null) {
-        return s;
-      }
-      const supply = getSupply(s.map.tiles, s.artists)[founder.type];
-      if (supply && supply.inUse >= supply.capacity) return s; // at capacity, or no supplier (0 >= 0)
+      const supply = founder ? getSupply(s.map.tiles, s.artists)[founder.type] : undefined;
+      if (!canAssignCommission(commission, workshopKey, founder, s.map.tiles, supply)) return s;
       return {
         artists: s.artists.map((a) => (a === founder ? { ...a, workProgress: 0 } : a)),
         commissions: s.commissions.map((c) => (c === commission ? { ...c, workshopKey } : c)),

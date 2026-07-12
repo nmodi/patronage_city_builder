@@ -3,6 +3,7 @@
 import assert from "node:assert";
 
 import {
+  canAssignCommission,
   maybeOfferCommission,
   reconcileCommissions,
   COMMISSION_OFFER_CHANCE,
@@ -10,7 +11,10 @@ import {
   OFFER_EXPIRY_MONTHS,
   REQUESTERS,
 } from "./commissions.ts";
+import { BUILDING_METADATA_BY_ID, type BuildingId } from "./buildings.ts";
 import { ARTWORK_PRESTIGE, WORK_DURATION_MONTHS } from "./artists.ts";
+import type { Tile, TileMap } from "./grid.ts";
+import type { MaterialSupply } from "./materials.ts";
 import type { Artist, Commission } from "./types.ts";
 
 const painter = (extra: Partial<Artist> = {}): Artist => ({
@@ -33,6 +37,61 @@ const offer = (extra: Partial<Commission> = {}): Commission => ({
   expiresTick: 999,
   ...extra,
 });
+
+const homeTile = (buildingId: BuildingId, active = true): Tile => ({
+  buildingId,
+  type: BUILDING_METADATA_BY_ID[buildingId].type,
+  position: { x: 5, y: 5 },
+  origin: { x: 5, y: 5 },
+  isOrigin: true,
+  isActive: active,
+  workers: 2,
+  builtTick: 0,
+});
+
+const availableSupply: MaterialSupply = {
+  capacity: 3,
+  inUse: 0,
+  allowed: new Set(),
+};
+
+// Assignment eligibility is shared by the UI and the authoritative store action.
+{
+  const commission = offer();
+  const founder = painter();
+  const tiles: TileMap = { "5,5": homeTile("workshop") };
+  assert.equal(canAssignCommission(commission, "5,5", founder, tiles, availableSupply), true);
+  assert.equal(
+    canAssignCommission({ ...commission, workshopKey: "5,5" }, "5,5", founder, tiles, availableSupply),
+    false
+  );
+  assert.equal(canAssignCommission(commission, "5,5", undefined, tiles, availableSupply), false);
+  assert.equal(
+    canAssignCommission(commission, "5,5", { ...founder, type: "sculptor" }, tiles, availableSupply),
+    false
+  );
+  assert.equal(
+    canAssignCommission(commission, "5,5", { ...founder, workProgress: 0 }, tiles, availableSupply),
+    false
+  );
+  assert.equal(canAssignCommission(commission, "5,5", founder, {}, availableSupply), false);
+  assert.equal(
+    canAssignCommission(commission, "5,5", founder, { "5,5": homeTile("workshop", false) }, availableSupply),
+    false
+  );
+  assert.equal(
+    canAssignCommission(commission, "5,5", founder, { "5,5": homeTile("cottage") }, availableSupply),
+    false
+  );
+  assert.equal(
+    canAssignCommission(commission, "5,5", founder, tiles, {
+      capacity: 3,
+      inUse: 3,
+      allowed: new Set(),
+    }),
+    false
+  );
+}
 
 // rng that returns a fixed sequence, then 0s. First draw gates the offer.
 const seq = (...vals: number[]) => {

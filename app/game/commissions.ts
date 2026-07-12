@@ -1,8 +1,11 @@
+import { BUILDING_METADATA_BY_ID } from "./buildings.ts";
+import type { TileMap } from "./grid.ts";
+import type { MaterialSupply } from "./materials.ts";
 import type { Artist, ArtistRank, Commission } from "./types.ts";
 import { ARTWORK_PRESTIGE, pick, RANK_ORDER, TITLES, WORK_DURATION_MONTHS } from "./artists.ts";
 
-// No other runtime imports: commissions.check.ts runs this file under plain
-// Node (type-only imports are stripped), mirroring artists.ts.
+// Runtime dependencies stay inside the game layer so the self-check remains
+// executable without React, Zustand, or Babylon.
 
 export const COMMISSION_OFFER_CHANCE = 0.15; // per month, when under the cap
 export const MAX_OPEN_OFFERS = 3;
@@ -20,6 +23,27 @@ export const REQUESTERS: { name: string; mix: RewardMix }[] = [
   { name: "The Wool Guild", mix: "mixed" },
   { name: "The Silk Guild", mix: "mixed" },
 ];
+
+/** Shared authoritative guard for assigning an open commission to a workshop. */
+export function canAssignCommission(
+  commission: Commission,
+  workshopKey: string,
+  founder: Artist | undefined,
+  tiles: TileMap,
+  supply: MaterialSupply | undefined
+): boolean {
+  if (commission.workshopKey || !founder || founder.homeTileKey !== workshopKey) return false;
+  if (founder.type !== commission.artistType || founder.workProgress != null) return false;
+
+  const tile = tiles[workshopKey];
+  if (!tile?.isOrigin || !tile.isActive) return false;
+  const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
+  if (metadata?.artistCapacity == null || (metadata.artistType ?? "painter") !== founder.type) {
+    return false;
+  }
+
+  return !(supply && supply.inUse >= supply.capacity);
+}
 
 /**
  * Periodic commission offer (design doc, Phase 8), mirroring maybeArriveArtist.
