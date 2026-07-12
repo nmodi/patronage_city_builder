@@ -11,6 +11,7 @@ import { createArtist } from "~/game/artists";
 import { generateSeed, pickCityName } from "~/game/seed";
 import { getSupply } from "~/game/materials";
 import { getAmenityCapacity, getHousingCapacity } from "~/game/metrics";
+import { migrateSave, SAVE_VERSION } from "~/game/saveMigration";
 import { advanceTick } from "~/game/tick";
 import { BASE_TICK_INTERVAL } from "~/game/constants";
 
@@ -321,14 +322,8 @@ export const useGameStore = create<GameState>()(
     // matched the metadata, so saves were discarded; v4: grid subdivided 2×;
     // v3: commissions replaced free-play artworks; v2: footprints rescaled —
     // same discard policy.)
-    version: 6,
-    migrate: (persisted, version) => {
-      // Pre-v5 saves keep the old discard policy: an empty patch merges into
-      // the fresh initial state (same outcome as the no-migrate mismatch,
-      // but the hydration lifecycle still completes for the loading gate).
-      if (version < 5) return {};
-      return version === 5 ? { ...(persisted as object), mapSeed: null } : persisted;
-    },
+    version: SAVE_VERSION,
+    migrate: migrateSave,
     // SSR: hydrate manually from the game route's client effect
     skipHydration: true,
     storage: createJSONStorage(() => (isDemo() ? noopStorage : localStorage)),
