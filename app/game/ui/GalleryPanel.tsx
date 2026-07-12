@@ -5,6 +5,7 @@ import { Images, X } from "lucide-react";
 import { formatMonth, useGameStore } from "~/stores/useGameStore";
 import { RANK_LABEL } from "~/game/artists";
 import { Panel } from "./Panel";
+import { ArtworkThumbnail } from "./ArtworkThumbnail";
 import { capitalizeLabel } from "./format";
 
 // Circular HUD button (top-left row) + fullscreen codex modal.
@@ -59,11 +60,7 @@ export function GalleryPanel() {
                   const artist = artists.find((a) => a.id === w.artistId);
                   return (
                     <div key={w.id} className="flex items-center gap-3">
-                      <img
-                        src="/art-placeholder.svg"
-                        alt={w.name}
-                        className="h-16 w-12 shrink-0 rounded-sm border border-wood/50 shadow-md shadow-black/30"
-                      />
+                      <ArtworkThumbnail title={w.name} variant="gallery" />
                       <div className="flex flex-col leading-tight">
                         <span className="font-display text-sm font-semibold text-ink">
                           {w.name}

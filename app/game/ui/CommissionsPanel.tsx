@@ -5,17 +5,8 @@ import { getSupply } from "~/game/materials";
 import { canAssignCommission } from "~/game/commissions";
 import { HudPanel } from "./Panel";
 import type { Commission } from "~/game/types";
+import { ArtworkThumbnail } from "./ArtworkThumbnail";
 import { capitalizeLabel } from "./format";
-
-function CommissionThumb({ title }: { title: string }) {
-  return (
-    <img
-      src="/art-placeholder.svg"
-      alt={title}
-      className="h-14 w-10 shrink-0 rounded-sm border border-wood/50 object-cover shadow-sm shadow-black/20"
-    />
-  );
-}
 
 export function CommissionsPanel({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const commissions = useGameStore((s) => s.commissions);
@@ -67,7 +58,7 @@ export function CommissionsPanel({ open, onToggle }: { open: boolean; onToggle: 
           const remaining = Math.max(0, Math.ceil(c.durationMonths - (founder?.workProgress ?? 0)));
           return (
             <div key={c.id} className="flex items-start gap-2.5">
-              <CommissionThumb title={c.title} />
+              <ArtworkThumbnail title={c.title} variant="offer" />
               <div className="flex min-w-0 flex-1 flex-col gap-1 leading-tight">
                 <span className="font-display text-base font-semibold text-ink">{c.title}</span>
                 <span className="flex items-center gap-1 text-sm text-ink-faint">
@@ -89,7 +80,7 @@ export function CommissionsPanel({ open, onToggle }: { open: boolean; onToggle: 
           const monthsLeft = c.expiresTick - tickCount;
           return (
             <div key={c.id} className="flex items-start gap-2.5">
-              <CommissionThumb title={c.title} />
+              <ArtworkThumbnail title={c.title} variant="offer" />
               <div className="flex min-w-0 flex-1 flex-col gap-1 leading-tight">
                 <span className="font-display text-base font-semibold text-ink">{c.title}</span>
                 <span className="flex flex-wrap items-center gap-1 text-sm text-ink-faint">
