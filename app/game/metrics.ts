@@ -27,6 +27,3 @@ export function computeCityMetrics(
 
   return { housing, amenities };
 }
-
-export const getHousingCapacity = (tiles: TileMap) => computeCityMetrics(tiles).housing;
-export const getAmenityCapacity = (tiles: TileMap) => computeCityMetrics(tiles).amenities;

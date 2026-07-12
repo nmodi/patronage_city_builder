@@ -10,7 +10,7 @@ import { canAssignCommission } from "~/game/commissions";
 import { createArtist } from "~/game/artists";
 import { generateSeed, pickCityName } from "~/game/seed";
 import { getSupply } from "~/game/materials";
-import { getAmenityCapacity, getHousingCapacity } from "~/game/metrics";
+import { computeCityMetrics } from "~/game/metrics";
 import { razeBuilding } from "~/game/raze";
 import { migrateSave, SAVE_VERSION } from "~/game/saveMigration";
 import { advanceTick } from "~/game/tick";
@@ -68,7 +68,6 @@ export type GameState = {
   removeTile: (position: GridPos) => void;
   getTileAt: (position: GridPos) => Tile | undefined;
   getHousing: () => number;
-  getAmenities: () => number;
   getCalendarLabel: () => string;
   resetGame: () => void;
 };
@@ -248,11 +247,7 @@ const initializer: StateCreator<GameState> = (set, get) => ({
   },
 
   getHousing: () => {
-    return getHousingCapacity(get().map.tiles);
-  },
-
-  getAmenities: () => {
-    return getAmenityCapacity(get().map.tiles);
+    return computeCityMetrics(get().map.tiles).housing;
   },
 
   getCalendarLabel: () => formatMonth(get().time.tickCount),
