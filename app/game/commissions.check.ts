@@ -6,12 +6,13 @@ import {
   canAssignCommission,
   maybeOfferCommission,
   reconcileCommissions,
+  BRONZE_COMMISSION_CHANCE,
   COMMISSION_OFFER_CHANCE,
   MAX_OPEN_OFFERS,
   OFFER_EXPIRY_MONTHS,
   REQUESTERS,
 } from "./commissions.ts";
-import { ARTWORK_PRESTIGE, WORK_DURATION_MONTHS } from "./artists.ts";
+import { ARTWORK_PRESTIGE, BRONZE_TITLES, TITLES, WORK_DURATION_MONTHS } from "./artists.ts";
 import { tile } from "./checkHelpers.ts";
 import type { TileMap } from "./grid.ts";
 import type { MaterialSupply } from "./materials.ts";
@@ -21,6 +22,15 @@ const painter = (extra: Partial<Artist> = {}): Artist => ({
   id: "p1",
   name: "x",
   type: "painter",
+  rank: "apprentice",
+  homeTileKey: "5,5",
+  ...extra,
+});
+
+const sculptor = (extra: Partial<Artist> = {}): Artist => ({
+  id: "s1",
+  name: "x",
+  type: "sculptor",
   rank: "apprentice",
   homeTileKey: "5,5",
   ...extra,
@@ -94,7 +104,9 @@ const win = () => 0; // below COMMISSION_OFFER_CHANCE → offer; picks index 0 e
 const lose = () => COMMISSION_OFFER_CHANCE;
 
 // Requester index for forcing a specific reward mix via the rng sequence.
-// Draw order in maybeOfferCommission: gate, type, requester, title.
+// Draw order in maybeOfferCommission: gate, type, [material — sculptor only],
+// requester, title. The material draw exists only for sculptors, so painter/
+// architect offer streams keep the historical (gate, type, requester, title) order.
 const requesterDraw = (i: number) => i / REQUESTERS.length + 1e-9;
 const churchIdx = REQUESTERS.findIndex((r) => r.mix === "florins");
 const nobleIdx = REQUESTERS.findIndex((r) => r.mix === "prestige");
@@ -105,6 +117,7 @@ const guildIdx = REQUESTERS.findIndex((r) => r.mix === "mixed");
   const out = maybeOfferCommission([], [painter()], 10, seq(0, 0, requesterDraw(guildIdx), 0));
   assert.ok(out);
   assert.equal(out.artistType, "painter");
+  assert.equal(out.material, "pigment"); // painters take no extra draw
   assert.ok(REQUESTERS.some((r) => r.name === out.requester));
   assert.ok(out.title.length > 0);
   assert.equal(out.durationMonths, WORK_DURATION_MONTHS.apprentice);
@@ -112,6 +125,29 @@ const guildIdx = REQUESTERS.findIndex((r) => r.mix === "mixed");
   assert.equal(out.florins, 25 * ARTWORK_PRESTIGE.apprentice);
   assert.equal(out.expiresTick, 10 + OFFER_EXPIRY_MONTHS);
   assert.equal(out.workshopKey, undefined);
+}
+
+// Sculptor offers roll marble or bronze via the extra draw (< BRONZE_COMMISSION_CHANCE
+// → bronze), and pick from the matching title pool.
+{
+  const bronze = maybeOfferCommission(
+    [],
+    [sculptor()],
+    10,
+    seq(0, 0, BRONZE_COMMISSION_CHANCE - 0.01, requesterDraw(guildIdx), 0)
+  );
+  assert.equal(bronze?.artistType, "sculptor");
+  assert.equal(bronze?.material, "bronze");
+  assert.ok(BRONZE_TITLES.includes(bronze!.title));
+
+  const marble = maybeOfferCommission(
+    [],
+    [sculptor()],
+    10,
+    seq(0, 0, BRONZE_COMMISSION_CHANCE + 0.01, requesterDraw(guildIdx), 0)
+  );
+  assert.equal(marble?.material, "marble");
+  assert.ok(TITLES.sculptor.includes(marble!.title));
 }
 
 // Gated off: no artists, losing roll, or open offers at the cap → null.

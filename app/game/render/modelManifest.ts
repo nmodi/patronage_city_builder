@@ -195,6 +195,7 @@ const TINT_COLORS: Record<string, string> = {
   white: "#f5efe2",
   stone: "#ddd8ca", // pale stone — marks civic/monumental buildings
   roofBrown: "#b1a296", // over terracotta: a slightly browner, sun-faded roof
+  bronze: "#a3773e", // warm cast-metal brown for the foundry's ingot stock (diffuse-only — no metal sheen)
 };
 // Texture-swap tints: a colormap variant instead of a diffuse multiply, for
 // accents baked into the atlas that a whole-material multiply can't isolate.
@@ -514,6 +515,26 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       // cut marble stock: stacked slabs + a cart
       { file: TOWN + "wall-block.glb", position: [0.15, 0, 0.72], scale: [0.3, 0.14, 0.22] },
       { file: TOWN + "wall-block.glb", position: [0.17, 0.14, 0.72], scale: [0.22, 0.11, 0.17], rotationY: 0.35 },
+      { file: TOWN + "cart.glb", position: [0.95, 0, 0.15], rotationY: 0.5, scale: 0.6 },
+    ],
+    fit: 0.88,
+    randomRotate: "quarter",
+  },
+  // Bronze foundry: same supplier grammar as the marble yard (low shed, squat
+  // hip), but the yard is a casting works — a stone furnace block and stacks of
+  // warm bronze ingots instead of pale marble slabs. No chimney smoke: smoke is
+  // production-only (workshops/bakery), a foundry is a supplier.
+  bronze_foundry: {
+    front: [1, 0],
+    parts: [
+      { file: TOWN + "wall-block.glb", position: [-0.4, 0, -0.3], tint: "facade" },
+      { file: TOWN + "roof-point.glb", position: [-0.4, 1, -0.3], scale: [1, 0.35, 1], tint: "roof" },
+      { file: TOWN + "wall-door.glb", position: [-0.38, 0, -0.3], tint: "facade" },
+      { file: TOWN + "wall-window-shutters.glb", position: [-0.4, 0, -0.28], rotationY: -Math.PI / 2, tint: "facade" },
+      // yard: a stout stone furnace + warm bronze ingot stacks + a hauling cart
+      { file: TOWN + "wall-block.glb", position: [0.55, 0, 0.5], scale: [0.35, 0.5, 0.35], tint: "stone" },
+      { file: TOWN + "wall-block.glb", position: [0.15, 0, 0.72], scale: [0.3, 0.12, 0.2], tint: "bronze" },
+      { file: TOWN + "wall-block.glb", position: [0.18, 0.12, 0.7], scale: [0.2, 0.1, 0.16], rotationY: 0.4, tint: "bronze" },
       { file: TOWN + "cart.glb", position: [0.95, 0, 0.15], rotationY: 0.5, scale: 0.6 },
     ],
     fit: 0.88,

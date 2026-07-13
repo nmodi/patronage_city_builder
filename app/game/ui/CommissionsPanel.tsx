@@ -1,7 +1,7 @@
 import { Clock, Coins, Crown, Scroll } from "lucide-react";
 
 import { useGameStore } from "~/stores/useGameStore";
-import { getSupply } from "~/game/materials";
+import { commissionMaterial, getSupply } from "~/game/materials";
 import { canAssignCommission } from "~/game/commissions";
 import { HudPanel } from "./Panel";
 import type { Commission } from "~/game/types";
@@ -15,7 +15,7 @@ export function CommissionsPanel({ open, onToggle }: { open: boolean; onToggle: 
   const tickCount = useGameStore((s) => s.time.tickCount);
   const assignCommission = useGameStore((s) => s.assignCommission);
 
-  const supply = getSupply(tiles, artists);
+  const supply = getSupply(tiles, artists, commissions);
   const active = commissions.filter((c) => c.workshopKey);
   const offers = commissions.filter((c) => !c.workshopKey);
 
@@ -28,12 +28,13 @@ export function CommissionsPanel({ open, onToggle }: { open: boolean; onToggle: 
   // Eligible workshops for an offer — mirrors the assignCommission guards so
   // the button never no-ops: founder of the right type, idle, workshop staffed,
   // supply not at capacity.
-  const eligibleWorkshops = (c: Commission) =>
-    [...founders.entries()]
-      .filter(([, founder]) =>
-        canAssignCommission(c, founder, tiles, supply[founder.type])
-      )
+  const eligibleWorkshops = (c: Commission) => {
+    const material = commissionMaterial(c);
+    const materialSupply = material ? supply[material] : undefined;
+    return [...founders.entries()]
+      .filter(([, founder]) => canAssignCommission(c, founder, tiles, materialSupply))
       .sort(([a], [b]) => a.localeCompare(b));
+  };
 
   return (
     <HudPanel
@@ -78,6 +79,7 @@ export function CommissionsPanel({ open, onToggle }: { open: boolean; onToggle: 
         {offers.map((c) => {
           const workshops = eligibleWorkshops(c);
           const monthsLeft = c.expiresTick - tickCount;
+          const material = commissionMaterial(c);
           return (
             <div key={c.id} className="flex items-start gap-2.5">
               <ArtworkThumbnail title={c.title} variant="offer" />
@@ -91,6 +93,7 @@ export function CommissionsPanel({ open, onToggle }: { open: boolean; onToggle: 
                 </span>
                 <span className="text-sm font-semibold text-sienna">
                   Requires: {capitalizeLabel(c.artistType)}
+                  {material && <span> · {capitalizeLabel(material)}</span>}
                   {monthsLeft < 4 && <span> · expires in {monthsLeft} mo</span>}
                 </span>
                 {workshops.length > 0 ? (

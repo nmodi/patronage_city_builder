@@ -141,12 +141,13 @@ Suppliers have **limited capacity** — the primary scarcity mechanic:
 | Supplier | Serves |
 |---|---|
 | Pigment Trader | Painters |
-| Marble Supplier | Sculptors |
+| Marble Supplier | Sculptors (marble commissions) |
+| Bronze Foundry | Sculptors (bronze commissions) |
 | Goldsmith | Luxury commissions |
 | Timber Yard | Construction, woodworkers |
 | Paper Mill | Scholars, printed works |
 
-Materials are not consumed — a working artist holds a supplier slot until the work completes. When demand exceeds capacity, additional artists of that type cannot work (oldest workshops keep their slots). Players build more suppliers to expand capacity. This forces the core prioritization: which artists get materials?
+Materials are not consumed — a working artist holds a supplier slot until the work completes. When demand exceeds capacity, additional artists of that type cannot work (oldest workshops keep their slots). Players build more suppliers to expand capacity. This forces the core prioritization: which artists get materials? Sculpture commissions come in **marble or bronze** (bronze the rarer, pricier medium), and the two draw from separate suppliers — so a bronze commission needs a Bronze Foundry, not just any sculptor with a marble slot.
 
 **Which suppliers a run offers** is planned to be seed-determined — see [map-resources.md](map-resources.md).
 
@@ -159,7 +160,7 @@ Materials are not consumed — a working artist holds a supplier slot until the 
 Each commission has:
 - A **requester** (Church / noble family / guild) — flavor and reward mix
 - A **required artist type** (painter, sculptor, …)
-- A **required material** (implies supplier capacity must be available)
+- A **required material** (implies supplier capacity must be available) — *(built)* sculpture commissions roll marble or bronze
 - A **duration** in months
 - A **reward** (florins and/or prestige)
 - An optional **deadline** (gentle tension, not punishment)
@@ -204,7 +205,7 @@ Workshops are per-discipline: each hosts and spawns only its own artist type.
 - **Sculptor's Workshop** *(built)* — sculptors; same stats, reuses the workshop model for now
 
 ### Suppliers (capacity-limited)
-- Pigment Trader *(built)*, Marble Supplier *(built)*, Goldsmith, Timber Yard, Paper Mill, Glassblower (unlocks stained-glass commissions)
+- Pigment Trader *(built)*, Marble Supplier *(built)*, Bronze Foundry *(built — bronze sculpture commissions)*, Goldsmith, Timber Yard, Paper Mill, Glassblower (unlocks stained-glass commissions)
 
 ### Housing
 - Cottage *(built)*, Townhouse *(built)*, Villa, Palazzo, Grand Palazzo

@@ -36,7 +36,7 @@ export function seedDemoCity() {
         // — Sculptor works, on plinths (plazas + garden pedestals) —
         { id: "demo-art-3", name: "David in Marble", requester: "House Medici", artistId: carve, artistType: "sculptor", completedTick: 51, prestige: 12, displayedAt: { key: "34,34", slot: 0 } },
         { id: "demo-art-8", name: "The Three Graces", requester: "House Strozzi", artistId: carve, artistType: "sculptor", completedTick: 40, prestige: 9, displayedAt: { key: "12,48", slot: 0 } },
-        { id: "demo-art-9", name: "Bust of the Gonfaloniere", requester: "The Guilds", artistId: carve, artistType: "sculptor", completedTick: 58, prestige: 7, displayedAt: { key: "54,16", slot: 0 } },
+        { id: "demo-art-9", name: "The Bronze Horseman", requester: "The Guilds", artistId: carve, artistType: "sculptor", completedTick: 58, prestige: 7, material: "bronze", displayedAt: { key: "54,16", slot: 0 } },
         { id: "demo-art-10", name: "Nymph of the Arno", requester: "House Pazzi", artistId: carve, artistType: "sculptor", completedTick: 64, prestige: 8, displayedAt: { key: "60,38", slot: 0 } },
         { id: "demo-art-11", name: "Bacchus", requester: "House Medici", artistId: carve, artistType: "sculptor", completedTick: 70, prestige: 10, displayedAt: { key: "110,34", slot: 0 } },
         // — In storage — exercises the gallery's "Display at…" flow —

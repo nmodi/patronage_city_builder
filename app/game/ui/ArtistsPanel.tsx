@@ -3,7 +3,12 @@ import { Hammer, Paintbrush, Palette, type LucideIcon } from "lucide-react";
 import { useGameStore } from "~/stores/useGameStore";
 import { RANK_LABEL } from "~/game/artists";
 import { BUILDING_METADATA_BY_ID } from "~/game/buildings";
-import { blockedReason, getSupply, MATERIAL_BY_ARTIST_TYPE } from "~/game/materials";
+import {
+  blockedReason,
+  commissionMaterial,
+  getSupply,
+  MATERIAL_BY_ARTIST_TYPE,
+} from "~/game/materials";
 import { HudPanel } from "./Panel";
 import { capitalizeLabel } from "./format";
 
@@ -30,7 +35,7 @@ export function ArtistsPanel({ open, onToggle }: { open: boolean; onToggle: () =
     .filter((t) => t.isOrigin && BUILDING_METADATA_BY_ID[t.buildingId]?.artistCapacity != null)
     .map((t) => `${t.position.x},${t.position.y}`)
     .sort();
-  const supply = getSupply(tiles, artists);
+  const supply = getSupply(tiles, artists, commissions);
 
   return (
     <HudPanel
@@ -68,7 +73,14 @@ export function ArtistsPanel({ open, onToggle }: { open: boolean; onToggle: () =
           }
           const commission = commissions.find((c) => c.workshopKey === key);
           const working = founder.workProgress != null && commission != null;
-          const founderSupply = supply[founder.type];
+          // Working founders gate on their commission's material; an idle founder
+          // shows the type-default material's capacity as a hint.
+          // ponytail: an idle sculptor reads marble even if only bronze is short —
+          // the exact material is only pinned when a specific offer is assigned.
+          const material = commission
+            ? commissionMaterial(commission)
+            : MATERIAL_BY_ARTIST_TYPE[founder.type];
+          const founderSupply = material ? supply[material] : undefined;
           const materialBlocked = working && founderSupply != null && !founderSupply.allowed.has(key);
           const atCapacity = founderSupply != null && founderSupply.inUse >= founderSupply.capacity;
           return (
@@ -87,14 +99,14 @@ export function ArtistsPanel({ open, onToggle }: { open: boolean; onToggle: () =
                     At work on {commission!.title} — {Math.floor(founder.workProgress!)}/
                     {commission!.durationMonths} months
                     {materialBlocked
-                      ? ` (no ${MATERIAL_BY_ARTIST_TYPE[founder.type]})`
+                      ? ` (no ${material})`
                       : !active && " (paused)"}
                   </span>
                 ) : !active ? (
                   <span className="text-xs text-sienna">Workshop unstaffed</span>
                 ) : atCapacity ? (
                   <span className="text-xs text-sienna">
-                    {blockedReason(founder.type, founderSupply)}
+                    {blockedReason(material, founderSupply)}
                   </span>
                 ) : (
                   <span className="text-xs text-ink-faint">Awaiting a commission</span>

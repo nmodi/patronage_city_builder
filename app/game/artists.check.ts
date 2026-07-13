@@ -240,12 +240,27 @@ const commission = (workshopKey: string, extra: Partial<Commission> = {}): Commi
   assert.equal(out.completed[0]!.name, "Test Fresco");
   assert.equal(out.completed[0]!.requester, "The Church");
   assert.equal(out.completed[0]!.prestige, 3); // commission prestige captured for display quality
+  assert.equal(out.completed[0]!.material, undefined); // no material on the commission → legacy default
   assert.deepEqual(out.finishedCommissionIds, ["c-5,5"]);
   assert.equal(out.prestige, 3);
   assert.equal(out.florins, 50);
   assert.equal(out.artists[0]!.xp, 1);
   assert.equal(out.artists[0]!.workProgress, undefined);
   assert.equal(out.artists[1]!.xp, 1); // whole workshop learns
+}
+
+// A bronze commission's material is copied onto the minted artwork (for the
+// statue's render treatment); the copy is type-agnostic.
+{
+  const out = progressArtworks(
+    [painter({ workProgress: 3 })],
+    [workshop("5,5")],
+    [commission("5,5", { material: "bronze" })],
+    3,
+    10
+  );
+  assert.equal(out.completed.length, 1);
+  assert.equal(out.completed[0]!.material, "bronze");
 }
 
 // The commission sets duration and payout, not the founder's rank.

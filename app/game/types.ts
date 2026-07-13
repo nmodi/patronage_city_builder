@@ -9,6 +9,9 @@ export type BuildingType =
   | "decoration";
 
 export type ArtistType = "painter" | "sculptor" | "architect";
+// Supplier materials. Sculptors need one of two (marble or bronze) per
+// commission; every other artist type maps 1:1 (see MATERIAL_BY_ARTIST_TYPE).
+export type Material = "pigment" | "marble" | "bronze";
 export type ArtistRank =
   | "apprentice"
   | "journeyman"
@@ -36,6 +39,7 @@ export interface Artwork {
   artistType: ArtistType;
   completedTick: number;
   prestige?: number; // commission prestige captured at mint; undefined (pre-Phase-9) = default quality
+  material?: Material; // sculptor works: marble | bronze; undefined (pre-bronze) = marble
   displayedAt?: { key: string; slot: number }; // host origin key + slot index; undefined = in storage
 }
 
@@ -57,6 +61,7 @@ export interface Commission {
   durationMonths: number;
   florins: number; // payout on completion
   prestige: number;
+  material?: Material; // required supplier material; undefined (pre-bronze saves) = MATERIAL_BY_ARTIST_TYPE default
   expiresTick: number; // open offer vanishes after this tick
   workshopKey?: string; // set on assignment; undefined = open offer
 }
@@ -91,6 +96,6 @@ export interface BuildingMetadata {
   roadWidth?: number; // roads only: cells stamped perpendicular to the drag axis
   linear?: boolean; // drag-placed like roads: each cell is an independent 1×1 segment tile
   paved?: boolean; // render a flagstone apron over the full footprint (joins plazas visually)
-  supplies?: { artistType: ArtistType; capacity: number }; // supplier: N concurrently-working artists
+  supplies?: { material: Material; capacity: number }; // supplier: N concurrently-working artists of this material
   displaySlots?: readonly DisplaySlotDef[]; // work display sites (Phase 9)
 }

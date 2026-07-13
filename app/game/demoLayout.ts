@@ -58,6 +58,7 @@ export const LAYOUT: Array<[number, number, BuildingId, number?]> = [
   [48, 34, "market"], [48, 38, "market"], [48, 42, "market"], // 7x4, three stacked along the plaza's east edge
   [48, 32, "cypress"], [51, 32, "cypress"], [54, 32, "cypress"], // flanking row
   [57, 34, "cypress"], [57, 38, "fountain"], [57, 42, "cypress"], // rear garden
+  [59, 34, "bronze_foundry"], // casts bronze for the sculptors, by the market garden's statue
   [46, 48, "tavern", 2], // facing the main plaza (front toward −y, like the palazzo)
   [31, 48, "bakery", 1], // west of the palazzo, on the residential edge
   [60, 38, "sculpture_display"], // statue pedestal in the market's rear garden

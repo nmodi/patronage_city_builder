@@ -11,7 +11,7 @@ import { canDisplayWork } from "~/game/display";
 import { createArtist } from "~/game/artists";
 import { generateSeed, pickCityName } from "~/game/seed";
 import { DEMO_MAP_SEED } from "~/game/demoLayout";
-import { getSupply } from "~/game/materials";
+import { commissionMaterial, getSupply } from "~/game/materials";
 import { computeDisplaySummary } from "~/game/display";
 import { computeCityMetrics } from "~/game/metrics";
 import { razeBuilding } from "~/game/raze";
@@ -171,7 +171,11 @@ const initializer: StateCreator<GameState> = (set, get) => ({
       if (!commission) return s;
       // Founder = first artist homed at the workshop; work is tracked on them.
       const founder = s.artists.find((a) => a.homeTileKey === workshopKey);
-      const supply = founder ? getSupply(s.map.tiles, s.artists)[founder.type] : undefined;
+      // Gate on the commission's own material (marble vs bronze), not the type.
+      const material = commissionMaterial(commission);
+      const supply = material
+        ? getSupply(s.map.tiles, s.artists, s.commissions)[material]
+        : undefined;
       if (!canAssignCommission(commission, founder, s.map.tiles, supply)) return s;
       return {
         artists: s.artists.map((a) => (a === founder ? { ...a, workProgress: 0 } : a)),

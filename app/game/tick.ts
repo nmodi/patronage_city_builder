@@ -2,7 +2,7 @@ import { BUILDING_METADATA_BY_ID } from "./buildings.ts";
 import { computePlazaConnectivity, PLAZA_CONNECTION_BONUS } from "./connectivity.ts";
 import { computeDisplaySummary, displayBoost } from "./display.ts";
 import type { TileMap } from "./grid.ts";
-import { getSupply } from "./materials.ts";
+import { assignedMaterials, getSupply, MATERIAL_BY_ARTIST_TYPE } from "./materials.ts";
 import { computeCityMetrics } from "./metrics.ts";
 import { maybeArriveArtist, progressArtworks, type WorkshopSlot } from "./artists.ts";
 import { maybeOfferCommission, reconcileCommissions } from "./commissions.ts";
@@ -70,12 +70,15 @@ export function advanceTick(
 
   // Working workshops beyond supplier capacity stall; oldest workshops retain
   // their slots. Material blocking shares the normal inactive feedback path.
-  const supply = getSupply(updatedTiles, state.artists);
+  const supply = getSupply(updatedTiles, state.artists, state.commissions);
+  const workshopMaterials = assignedMaterials(state.commissions);
   const blockedOrigins = new Set<string>();
   for (const artist of state.artists) {
     if (artist.workProgress == null) continue;
-    const material = supply[artist.type];
-    if (material && !material.allowed.has(artist.homeTileKey)) {
+    const material =
+      workshopMaterials.get(artist.homeTileKey) ?? MATERIAL_BY_ARTIST_TYPE[artist.type];
+    const status = material ? supply[material] : undefined;
+    if (status && !status.allowed.has(artist.homeTileKey)) {
       blockedOrigins.add(artist.homeTileKey);
     }
   }

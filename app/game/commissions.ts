@@ -1,8 +1,15 @@
 import { BUILDING_METADATA_BY_ID } from "./buildings.ts";
 import type { TileMap } from "./grid.ts";
-import type { MaterialSupply } from "./materials.ts";
+import { MATERIAL_BY_ARTIST_TYPE, type MaterialSupply } from "./materials.ts";
 import type { Artist, ArtistRank, Commission } from "./types.ts";
-import { ARTWORK_PRESTIGE, pick, RANK_ORDER, TITLES, WORK_DURATION_MONTHS } from "./artists.ts";
+import {
+  ARTWORK_PRESTIGE,
+  BRONZE_TITLES,
+  pick,
+  RANK_ORDER,
+  TITLES,
+  WORK_DURATION_MONTHS,
+} from "./artists.ts";
 
 // Runtime dependencies stay inside the game layer so the self-check remains
 // executable without React, Zustand, or Babylon.
@@ -10,6 +17,7 @@ import { ARTWORK_PRESTIGE, pick, RANK_ORDER, TITLES, WORK_DURATION_MONTHS } from
 export const COMMISSION_OFFER_CHANCE = 0.15; // per month, when under the cap
 export const MAX_OPEN_OFFERS = 3;
 export const OFFER_EXPIRY_MONTHS = 12;
+export const BRONZE_COMMISSION_CHANCE = 1 / 3; // share of sculpture offers cast in bronze (the pricier medium)
 
 /** Return an assigned commission to the open pool with a fresh expiry. */
 export function reopenCommission(commission: Commission, currentTick: number): Commission {
@@ -75,6 +83,11 @@ export function maybeOfferCommission(
   if (rng() >= COMMISSION_OFFER_CHANCE) return null;
 
   const type = pick(types, rng);
+  // Sculptor commissions roll marble or bronze; every other type maps 1:1. The
+  // extra draw happens only for sculptors, so painter/architect offer streams
+  // keep their historical rng draw order (gate, type, requester, title).
+  let material = MATERIAL_BY_ARTIST_TYPE[type];
+  if (type === "sculptor" && rng() < BRONZE_COMMISSION_CHANCE) material = "bronze";
   const bestRank = artists
     .filter((a) => a.type === type)
     .reduce<ArtistRank>(
@@ -97,9 +110,10 @@ export function maybeOfferCommission(
 
   return {
     id: crypto.randomUUID(),
-    title: pick(TITLES[type], rng),
+    title: pick(material === "bronze" ? BRONZE_TITLES : TITLES[type], rng),
     requester: requester.name,
     artistType: type,
+    material,
     durationMonths: WORK_DURATION_MONTHS[bestRank],
     florins,
     prestige,

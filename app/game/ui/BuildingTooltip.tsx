@@ -7,7 +7,13 @@ import {
   PLAZA_IDS,
 } from "~/game/connectivity";
 import { displayBoost } from "~/game/display";
-import { blockedReason, getSupply, MATERIAL_BY_ARTIST_TYPE } from "~/game/materials";
+import {
+  assignedMaterials,
+  blockedReason,
+  getSupply,
+  MATERIAL_BY_ARTIST_TYPE,
+  MATERIAL_USERS,
+} from "~/game/materials";
 import { getRazeSalvage } from "~/game/raze";
 import type { BuildingMetadata } from "~/game/types";
 import { staffingEfficiency } from "~/game/workers";
@@ -60,6 +66,7 @@ export function BuildingTooltip() {
   );
   const artists = useGameStore((s) => s.artists);
   const artworks = useGameStore((s) => s.artworks);
+  const commissions = useGameStore((s) => s.commissions);
   const tiles = useGameStore((s) => s.map.tiles);
   const isRazing = useGameStore((s) => s.map.selectedBuilding === RAZE_TOOL);
   const mouse = useRef({ x: 0, y: 0 });
@@ -109,18 +116,21 @@ export function BuildingTooltip() {
   // Material supply status (Phase 7): citywide per-material totals, so a
   // supplier reads "Pigment: 2/3 painters" and a staffed-but-blocked workshop
   // gets its reason instead of "Needs 0 more workers".
-  const supply = getSupply(tiles, artists);
-  const material = metadata.supplies
-    ? MATERIAL_BY_ARTIST_TYPE[metadata.supplies.artistType]
-    : undefined;
-  const materialStatus = metadata.supplies ? supply[metadata.supplies.artistType] : undefined;
+  const supply = getSupply(tiles, artists, commissions);
+  const material = metadata.supplies?.material;
+  const materialStatus = material ? supply[material] : undefined;
   const founder =
     metadata.artistCapacity != null
-      ? artists.find((a) => a.homeTileKey === `${tile.origin.x},${tile.origin.y}`)
+      ? artists.find((a) => a.homeTileKey === originKey)
       : undefined;
+  // A blocked workshop's material comes from its assigned commission (marble vs
+  // bronze); fall back to the type default when idle/pre-bronze.
+  const founderMaterial = founder
+    ? assignedMaterials(commissions).get(originKey) ?? MATERIAL_BY_ARTIST_TYPE[founder.type]
+    : undefined;
   const materialReason =
-    !isActive && missing === 0 && founder
-      ? blockedReason(founder.type, supply[founder.type])
+    !isActive && missing === 0 && founderMaterial
+      ? blockedReason(founderMaterial, supply[founderMaterial])
       : null;
 
   return (
@@ -137,10 +147,10 @@ export function BuildingTooltip() {
             {(metadata.maxWorkers ?? 0) > required ? ` (max ${metadata.maxWorkers})` : ""}
           </div>
         )}
-        {metadata.supplies && material && materialStatus && (
+        {material && materialStatus && (
           <div className="text-sm text-ink-faint">
             {capitalizeLabel(material)}: {materialStatus.inUse}/
-            {materialStatus.capacity} {metadata.supplies.artistType}s
+            {materialStatus.capacity} {MATERIAL_USERS[material]}
           </div>
         )}
         {canBeInactive && (

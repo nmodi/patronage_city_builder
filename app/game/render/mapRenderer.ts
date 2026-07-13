@@ -302,7 +302,7 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
       art.push({ mesh: pedestal });
       const work = bySlot?.get(i);
       if (work) {
-        const statue = displayArt.createStatue(work.id);
+        const statue = displayArt.createStatue(work);
         statue.position.set(x, 0.02 + PLINTH_HEIGHT, z);
         statue.rotation.y = Math.atan2(center.x - x, center.z - z); // face the footprint center
         shadowGenerator.addShadowCaster(statue);

@@ -150,7 +150,7 @@ export const TITLES: Record<ArtistType, string[]> = {
   ],
   sculptor: [
     "David in Marble",
-    "The Bronze Horseman",
+    "Pietà in Marble",
     "Fountain of the Muses",
     "Bust of a Patrician",
   ],
@@ -161,6 +161,14 @@ export const TITLES: Record<ArtistType, string[]> = {
     "Facade of San Marco",
   ],
 };
+
+// Titles for bronze-cast sculpture commissions (see BRONZE_COMMISSION_CHANCE).
+export const BRONZE_TITLES = [
+  "The Bronze Horseman",
+  "Perseus with the Head of Medusa",
+  "The Gates of Paradise",
+  "Equestrian Monument of the Condottiere",
+];
 
 /** xp+1 with rank-up at the RANK_XP thresholds; never demotes. */
 function gainXp(a: Artist): Pick<Artist, "xp" | "rank"> {
@@ -251,6 +259,7 @@ export function progressArtworks(
       artistType: founder.type,
       completedTick: currentTick,
       prestige: commission.prestige, // captured for display quality; the commission is gone next tick
+      material: commission.material, // marble/bronze, for the statue's render treatment
     });
     finishedCommissionIds.push(commission.id);
     prestige += commission.prestige;

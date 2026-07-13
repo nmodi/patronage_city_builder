@@ -43,6 +43,17 @@ export function createDisplayArt(scene: Scene) {
     return marble;
   }
 
+  let bronze: StandardMaterial | null = null;
+  function bronzeMat(): Material {
+    if (!bronze) {
+      bronze = new StandardMaterial("statue-bronze", scene);
+      bronze.diffuseColor = Color3.FromHexString("#6e5426"); // dark patinated bronze
+      bronze.specularColor = new Color3(0.55, 0.47, 0.3); // warm metal highlight
+      bronze.specularPower = 48; // tight, glossy — reads as cast metal vs matte marble
+    }
+    return bronze;
+  }
+
   let stone: StandardMaterial | null = null;
   function stoneMat(): Material {
     if (!stone) {
@@ -70,8 +81,9 @@ export function createDisplayArt(scene: Scene) {
     return merged; // base at y=0, top ≈ PLINTH_HEIGHT (0.16)
   }
 
-  function createStatue(artworkId: string): Mesh {
-    const statue = createStatueMesh(scene, hash(artworkId) % 5, marbleMat());
+  function createStatue(artwork: Artwork): Mesh {
+    const mat = artwork.material === "bronze" ? bronzeMat() : marbleMat(); // undefined = marble
+    const statue = createStatueMesh(scene, hash(artwork.id) % 5, mat);
     statue.scaling.setAll(STATUE_SCALE);
     return statue; // feet at local y=0
   }
@@ -160,6 +172,7 @@ export function createDisplayArt(scene: Scene) {
 
   function dispose() {
     marble?.dispose();
+    bronze?.dispose();
     stone?.dispose();
   }
 
