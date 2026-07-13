@@ -184,7 +184,6 @@ export const BUILDING_TYPES = [
     housing: 8,
     workersRequired: 0,
     maxWorkers: 0,
-    displaySlots: [{ kind: "painting" }],
   },
   {
     type: "materials",
