@@ -38,7 +38,7 @@ export function createDisplayArt(scene: Scene) {
     if (!marble) {
       marble = new StandardMaterial("statue-marble", scene);
       marble.diffuseColor = Color3.FromHexString("#e6e1d4");
-      marble.specularColor = new Color3(0.12, 0.12, 0.12); // faint stone sheen
+      marble.specularColor = new Color3(0.01, 0.01, 0.01); // near-matte — carved stone, not polished
     }
     return marble;
   }
