@@ -48,7 +48,7 @@ function getActiveEffects(
     effects.push(`Plaza connection: +${Math.round(PLAZA_CONNECTION_BONUS * plazaStrength * 100)}%`);
   }
   if (displayedCount > 0) {
-    effects.push(`Masterworks on display: ${displayedCount} (+${Math.round((displayMult - 1) * 100)}%)`);
+    effects.push(`Works on display: ${displayedCount} (+${Math.round((displayMult - 1) * 100)}%)`);
   }
 
   return effects;

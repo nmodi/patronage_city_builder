@@ -91,7 +91,7 @@ export function advanceTick(
   const plazaBoost = (key: string) =>
     1 + PLAZA_CONNECTION_BONUS * (connected.get(key) ?? 0);
 
-  // Displayed masterworks: a per-tick trickle plus a per-host effectiveness boost.
+  // Displayed works: a per-tick trickle plus a per-host effectiveness boost.
   const display = computeDisplaySummary(updatedTiles, state.artworks);
 
   const { housing, amenities } = computeCityMetrics(updatedTiles, connected, display.counts);

@@ -216,7 +216,7 @@ function makeMat(scene: Scene, name: string, hex: string): StandardMaterial {
 }
 
 /**
- * A statically-posed figure for masterwork statues (Phase 9): one variant, all
+ * A statically-posed figure for work statues (Phase 9): one variant, all
  * three material slots collapsed onto `material`. Reuses the citizen silhouette
  * as the generic statue until custom low-poly sculptures exist. Caller owns
  * placement, scaling, and disposal (the material is shared, not disposed here).

@@ -131,7 +131,7 @@ const noRandomEvent = () => 1;
   assert.equal(out.artists[0]?.xp, 1);
 }
 
-// A displayed masterwork trickles inspiration city-wide and boosts its host (+5%).
+// A displayed work trickles inspiration city-wide and boosts its host (+5%).
 {
   const work: Artwork = {
     id: "w1",

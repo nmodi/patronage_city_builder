@@ -1,4 +1,4 @@
-// Self-check for masterwork display: slot rotation, compat guard, host bonus,
+// Self-check for work display: slot rotation, compat guard, host bonus,
 // trickle math (inspiration vs church prestige).
 // Run: node --experimental-strip-types app/game/display.check.ts
 import assert from "node:assert";

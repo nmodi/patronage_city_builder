@@ -74,7 +74,7 @@ type TileMeshEntry = {
   apron: Mesh | null;
   marker: Mesh | null;
   smoke: SmokePlume | null;
-  /** Displayed-masterwork meshes (plinths, statues, facade canvases). */
+  /** Displayed-work meshes (plinths, statues, facade canvases). */
   art: DisplayArtHandle[];
   buildingId: BuildingId;
   isActive: boolean;

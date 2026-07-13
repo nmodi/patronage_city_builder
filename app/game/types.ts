@@ -92,5 +92,5 @@ export interface BuildingMetadata {
   linear?: boolean; // drag-placed like roads: each cell is an independent 1×1 segment tile
   paved?: boolean; // render a flagstone apron over the full footprint (joins plazas visually)
   supplies?: { artistType: ArtistType; capacity: number }; // supplier: N concurrently-working artists
-  displaySlots?: readonly DisplaySlotDef[]; // masterwork display sites (Phase 9)
+  displaySlots?: readonly DisplaySlotDef[]; // work display sites (Phase 9)
 }

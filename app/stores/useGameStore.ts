@@ -56,7 +56,7 @@ export type GameState = {
   // commission); null = no prompt. Transient — never persisted.
   razeTarget: string | null;
   setRazeTarget: (key: string | null) => void;
-  // Building whose masterwork-display panel is open (idle click on a slotted
+  // Building whose work-display panel is open (idle click on a slotted
   // host); slot set when a filled plinth cell was clicked directly. Transient.
   inspectTarget: { key: string; slot?: number } | null;
   setInspectTarget: (target: { key: string; slot?: number } | null) => void;

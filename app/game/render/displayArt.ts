@@ -9,7 +9,7 @@ import type { Scene } from "@babylonjs/core/scene";
 import type { Artwork } from "~/game/types";
 import { createStatueMesh } from "./citizenFigures";
 
-// Visuals for displayed masterworks (Phase 9): a stone plinth + marble statue
+// Visuals for displayed works (Phase 9): a stone plinth + marble statue
 // for plinth slots, a gilt-framed procedural canvas for painting slots. These
 // are individual meshes (not thin-instanced) — counts are tiny and each canvas
 // is unique per artwork. Mirrors the create-visual shape of smoke.ts.

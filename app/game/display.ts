@@ -1,4 +1,4 @@
-// Masterwork display (design doc, Phase 9). Completed works are placed into
+// Work display (design doc, Phase 9). Completed works are placed into
 // typed display slots on buildings and plazas. A displayed work trickles a
 // small permanent bonus to the city — inspiration everywhere, prestige in
 // churches — and makes its host building a little more effective (+5% each,
