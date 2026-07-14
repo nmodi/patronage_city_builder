@@ -35,7 +35,7 @@ Today a requester only skews the florin/prestige split. A profile drives the off
 Each completed work for a faction ticks a per-faction count — per *family*, not for the nobility as a bloc; the Medici remember what you made for them, not what you made for the Strozzi. Thresholds unlock grander offers from that faction; nothing ever counts down.
 
 - Rungs at **2 / 5 / 9** completed works (starting points, not commitments — same convention as building-effects.md)
-- Higher rungs: longer, richer offers; rarer materials (bronze, gold) from that faction
+- Higher rungs: longer, richer offers; rarer materials (bronze, gold) from that faction — and, once rank-gated commissions land (main doc, Later / stretch → Architects & building commissions), asks that name a minimum artist rank. Upper rungs are the only place an ask may exceed the city's current best rank: an aspirational carrot that waits, never a punishment
 - Top rung: the faction offers its **signature chain** (below)
 - **The Church's upper rungs (5 and 9) additionally require a standing Cathedral.** Favor still ticks past the thresholds without one — nothing is ever lost — but the grander asks and the signature chain wait until the cathedral stands (the Dome needs somewhere to go). Noble houses have no such gate: a family's palazzo is how it *enters* the roster, and the starting houses climb freely from day one
 - **No decay, no neglect penalty.** Ignoring a faction only means never seeing its grandest asks
@@ -51,6 +51,8 @@ Reaching a faction's top rung offers a 2–3 part commission arc ending in a fam
 - **A noble family** — portrait → family chapel → an equestrian bronze or a colossus
 
 The Church chain's Cathedral prerequisite is structural — its top rung sits behind the Cathedral gate above, and the Dome is that cathedral's. The Baptistery alternate arc is unchanged.
+
+Chain capstones are also where **building commissions** (main doc, Later / stretch → Architects & building commissions) naturally live: the Dome and the family chapel are architecture, so those chain steps become building commissions asking for a high-ranked architect once that pipeline exists — until then, chains stay artwork-only.
 
 Chain works are natural feeders into the Phase 12 Renaissance milestone if it later grows extra conditions — that's the milestone's decision, not this doc's.
 
