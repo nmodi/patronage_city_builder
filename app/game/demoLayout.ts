@@ -183,7 +183,7 @@ export const LAYOUT: Array<[number, number, BuildingId, number?]> = [
   ...road(100, 48, 101, 55, "dirt_path"), // cross lane, south of it
   [102, 32, "small_plaza"], // the villa's forecourt
   [96, 34, "townhouse", 2], // the villa farmhouse
-  [110, 34, "sculpture_display"], // a statue in the garden
+  [110, 34, "sculpture_display", 4], // a statue in the garden, plinth pad at 45°
   [94, 50, "vineyard"], [104, 50, "vineyard", 1],
   [108, 44, "olive_grove"], [112, 55, "olive_grove"],
   [104, 42, "fountain"],
@@ -235,4 +235,14 @@ export const LAYOUT: Array<[number, number, BuildingId, number?]> = [
   // NW path: a lane threading Region A from cross street gy68 up between the
   // terraces and the workshop block.
   ...diagRoad(49, 68, 6, 1, -1, "path"),
+
+  // — Diagonal buildings (rotation 4-7 = quarter + 45°, diamond cell masks):
+  //   flanking the NE road flush, doors toward it. Front direction at 45°:
+  //   local +X faces (1,-1)/(-1,-1)/(-1,1)/(1,1) for r=4-7; local +Z faces
+  //   (1,1)/(1,-1)/(-1,-1)/(-1,1). Permanent regression targets for the
+  //   diagonal render path (fit, apron, mask). —
+  [39, 68, "cottage", 6], // NE side of the road, door SW onto it
+  [35, 71, "workshop", 5], // SW side, long axis parallel, door NE onto it
+  // (the villa garden's sculpture_display above also carries r4 — the
+  // display-slot / plinth path at 45°)
 ];
