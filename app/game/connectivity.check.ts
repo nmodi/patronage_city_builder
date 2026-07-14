@@ -75,6 +75,18 @@ function road(tiles: Record<string, ConnectivityTile>, x0: number, x1: number, y
   assert.equal(out.get("13,2"), 1 - 1 / PLAZA_REACH);
 }
 
+// A bell tower on the network refreshes like a secondary plaza (isHub-derived).
+{
+  const tiles: Record<string, ConnectivityTile> = {};
+  put(tiles, "city", "town_center_plaza", 0, 0, 2, 2);
+  road(tiles, 2, 9, 0); // 8 roads, d=1..8
+  put(tiles, "decoration", "bell_tower", 10, 0, 3, 3); // reached at d→0
+  put(tiles, "artist", "workshop", 13, 0, 2, 2); // touches the tower
+  const out = computePlazaConnectivity(tiles);
+  assert.equal(out.get("13,0"), 1); // refreshed to full at the campanile
+  assert.ok(!out.has("10,0")); // hubs are network, never recipients
+}
+
 // A thin diagonal staircase conducts the bonus, one step per cell.
 {
   const tiles: Record<string, ConnectivityTile> = {};

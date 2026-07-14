@@ -88,6 +88,7 @@ export interface BuildingMetadata {
   };
   housing?: number;
   amenities?: number; // raises the population growth ceiling while staffed
+  prestigeOnBuild?: number; // one-time prestige lump when placed (cathedral consecration)
   isHub?: boolean;
   workersRequired?: number;
   maxWorkers?: number;

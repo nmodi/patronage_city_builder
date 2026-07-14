@@ -152,6 +152,15 @@ export const BRONZE_TITLES = [
   "Equestrian Monument of the Condottiere",
 ];
 
+/** XP threshold of the next rank up, or null at the top (grand master). */
+export function nextRankXp(rank: ArtistRank): number | null {
+  const nextOrder = RANK_ORDER[rank] + 1;
+  for (const r of RANK_XP) {
+    if (RANK_ORDER[r.rank] === nextOrder) return r.xp;
+  }
+  return null;
+}
+
 /** xp+amount with rank-up at the RANK_XP thresholds; never demotes. */
 function gainXp(a: Artist, amount: number): Pick<Artist, "xp" | "rank"> {
   const xp = (a.xp ?? 0) + amount;

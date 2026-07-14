@@ -1,7 +1,7 @@
 import { Hammer, Paintbrush, Palette, type LucideIcon } from "lucide-react";
 
 import { useGameStore } from "~/stores/useGameStore";
-import { RANK_LABEL } from "~/game/artists";
+import { nextRankXp, RANK_LABEL } from "~/game/artists";
 import { BUILDING_METADATA_BY_ID } from "~/game/buildings";
 import {
   blockedReason,
@@ -81,6 +81,10 @@ export function ArtistsPanel({ open, onToggle }: { open: boolean; onToggle: () =
             ? commissionMaterial(commission)
             : MATERIAL_BY_ARTIST_TYPE[founder.type];
           const founderSupply = material ? supply[material] : undefined;
+          const xpCeiling = nextRankXp(founder.rank);
+          const xpLabel = `${Math.floor(founder.xp ?? 0).toLocaleString()}${
+            xpCeiling != null ? ` / ${xpCeiling.toLocaleString()}` : ""
+          } XP`;
           const materialBlocked = working && founderSupply != null && !founderSupply.allowed.has(key);
           const atCapacity = founderSupply != null && founderSupply.inUse >= founderSupply.capacity;
           return (
@@ -91,8 +95,8 @@ export function ArtistsPanel({ open, onToggle }: { open: boolean; onToggle: () =
                   Bottega di {founder.name}
                 </span>
                 <span className="text-sm text-ink-faint">
-                  {RANK_LABEL[founder.rank]} {capitalizeLabel(founder.type)} · {members.length}{" "}
-                  {members.length === 1 ? "artist" : "artists"}
+                  {RANK_LABEL[founder.rank]} {capitalizeLabel(founder.type)} · {xpLabel} ·{" "}
+                  {members.length} {members.length === 1 ? "artist" : "artists"}
                 </span>
                 {working ? (
                   <span className={`text-xs ${active ? "text-prestige-gold" : "text-sienna"}`}>

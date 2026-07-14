@@ -49,23 +49,23 @@ export const ARTWORK_PRESTIGE: Record<ArtistRank, number> = {
   grand_master: 10,
 };
 
-// xp = completed works, cumulative thresholds with escalating steps so each
-// promotion takes years of game time and top ranks stay rare.
+// Cumulative thresholds with escalating steps so each promotion takes years
+// of game time and top ranks stay rare. Scale: one completed work = 100 xp.
 export const RANK_XP: { rank: ArtistRank; xp: number }[] = [
-  { rank: "grand_master", xp: 40 },
-  { rank: "renowned_master", xp: 30 },
-  { rank: "master", xp: 22 },
-  { rank: "virtuoso", xp: 15 },
-  { rank: "artisan", xp: 9 },
-  { rank: "journeyman", xp: 4 },
+  { rank: "grand_master", xp: 4000 },
+  { rank: "renowned_master", xp: 3000 },
+  { rank: "master", xp: 2200 },
+  { rank: "virtuoso", xp: 1500 },
+  { rank: "artisan", xp: 900 },
+  { rank: "journeyman", xp: 400 },
 ];
 
-// Career averages ~3.3 works/yr, so practice at 0.24 XP/yr is ~7% extra (minor);
-// taught apprentices at 0.72 XP/yr get a ~20% head start.
+// Career averages ~3.3 works/yr, so practice at 24 XP/yr is ~7% extra (minor);
+// taught apprentices at 72 XP/yr get a ~20% head start.
 export const XP_RATES = {
-  practicePerMonth: 0.02, // passive training, every artist, every month
+  practicePerMonth: 2, // passive training, every artist, every month
   teachingMultiplier: 3, // practice rate × this when a higher-ranked artist shares the workshop
-  perCompletedWork: 1, // one-time gain for every member when the workshop completes a work
+  perCompletedWork: 100, // one-time gain for every member when the workshop completes a work
 };
 
 // --- Work display (display.ts) ---
@@ -92,4 +92,4 @@ export const RAZE_SALVAGE_FRACTION = 0.5; // half the build cost, salvaged
 export const POPULATION_DRIFT_PER_MONTH = 1; // pop moves toward the cap by this much/month
 
 // --- Starting state (useGameStore.ts) ---
-export const STARTING_FLORINS = 2000;
+export const STARTING_FLORINS = 3000;

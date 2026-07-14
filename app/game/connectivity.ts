@@ -9,11 +9,16 @@
 // Only imports from dependency-free sim modules: connectivity.check.ts runs
 // this file under plain Node.
 
+import { BUILDING_TYPES } from "./buildings.ts";
 import { PLAZA_CONNECTION_BONUS, PLAZA_REACH } from "./constants.ts";
 export { PLAZA_CONNECTION_BONUS, PLAZA_REACH };
 
 export const MAIN_PLAZA_ID = "town_center_plaza";
-export const PLAZA_IDS = new Set(["plaza", "small_plaza", MAIN_PLAZA_ID]);
+// Hubs refresh the Main Plaza's reach to full: the plazas plus any building
+// tagged isHub (bell tower). Derived so the metadata flag stays honest.
+export const PLAZA_IDS = new Set<string>(
+  BUILDING_TYPES.filter((b) => "isHub" in b && b.isHub).map((b) => b.id)
+);
 
 /** Minimal structural slice of the store's Tile; one entry per occupied cell. */
 export interface ConnectivityTile {

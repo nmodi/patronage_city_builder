@@ -253,6 +253,9 @@ const initializer: StateCreator<GameState> = (set, get) => ({
       placed = true;
       return {
         florins: s.florins - totalCost,
+        ...(metadata.prestigeOnBuild
+          ? { prestige: s.prestige + metadata.prestigeOnBuild * positions.length }
+          : {}),
         ...(founders.length ? { artists: [...s.artists, ...founders] } : {}),
         map: {
           ...s.map,

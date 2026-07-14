@@ -38,7 +38,7 @@ The most important slot — landmarks widen the *input* to the core loop rather 
 | Glassblower | Stained-glass commissions |
 | Monastery | Illuminated-manuscript commissions — gated on Monastery **and** Paper Mill both existing (the first two-building combo unlock; still one boolean in the offer generator) |
 
-Cathedral extras: completing it pays a **one-time prestige lump** (the consecration moment), and *(built — Phase 9)* it doubles as a work display site — 4 painting + 2 statue slots, and as a church its displayed works trickle prestige (see the toolkit).
+Cathedral extras: completing it pays a **one-time prestige lump** *(built — July 2026: `prestigeOnBuild: 25`, paid in `placeTiles`; the commission-elevation effect above still waits on factions)*, and *(built — Phase 9)* it doubles as a work display site — 4 painting + 2 statue slots, and as a church its displayed works trickle prestige (see the toolkit).
 
 ### 2. Passive resource trickle
 
@@ -47,31 +47,34 @@ One number per building, feeding an existing headline resource. Subject to dimin
 | Building | Boosts |
 |---|---|
 | Market | Florins |
+| Cottage, Townhouse *(built — July 2026)* | Florins — rents (2ƒ / 5ƒ per month; the pre-scaffolded `income` field, finally switched on) |
 | Spice Trader | Florins + prestige |
 | Baptistery | Flat prestige |
 | Decorations (see below) | Inspiration |
-| Vineyard, Olive Grove | Florins — working farmland: "pretty things inspire, productive land pays" |
+| Vineyard, Olive Grove | ~~Florins~~ — the farmland-pays idea was declined for now (July 2026); they trickle inspiration with the other greenery instead. Stays open as a later lever |
 
-**Decorations are the current gap:** the main doc lists decorations→inspiration as built-in, but no decoration in `buildings.ts` has a `generates` field today. Closing it is one field per def, scaled roughly by cost (the tick loop sums before rounding, so fractions accumulate):
+**Decoration trickles *(built — July 2026)*:** one `generates.inspiration` field per def, scaled roughly by cost. Linear pieces (colonnade, fence, stone wall) are one origin tile per dragged cell, so their rates are per cell — the old per-placement numbers were rescaled down. Note the tick rounds the summed delta each month, so a lone bush yields nothing until it has company (accepted; decorations cluster).
 
 | Decoration | Inspiration / month |
 |---|---|
 | Fountain | 2 |
-| Colonnade, Obelisk, Bell Tower | 1.5 |
-| Tree, Cypress | 0.5 |
-| Bush, Rocks, Boulder, Fence, Stone Wall | 0.25 |
+| Obelisk, Bell Tower | 1.5 |
+| Tree, Cypress, Vineyard, Olive Grove | 0.5 |
+| Bush, Rocks, Boulder | 0.25 |
+| Colonnade | 0.25 per cell |
+| Fence, Stone Wall | 0.05 per cell |
 
 ### 3. Population thresholds
 
 Service buildings (Bakery, Tavern, Bathhouse, Apothecary, Public Well, Market Stall) raise the amenity ceiling while staffed. Already built; every future service building does exactly this and nothing more.
 
-**Chapel** joins this slot with a twist: flat `amenities: +10` with **zero workers required** — the one build-once, truly passive service ("spiritual comfort"). That's what differentiates it from the staffed services. *(Rejected alternative: a small prestige trickle — the passive amenity is more distinct.)*
+**Chapel** joins this slot with a twist *(built — July 2026)*: flat `amenities: +10` with **zero workers required** — the one build-once, truly passive service ("spiritual comfort"). That's what differentiates it from the staffed services. *(Rejected alternative: a small prestige trickle — the passive amenity is more distinct.)*
 
 ### 4. Soft spatial aura
 
 Library / Studiolo boosts nearby workshops using the same flat-bonus mechanic as plaza proximity (Phase 10). Reuse that one implementation — no second radius system.
 
-**Bell Tower as connectivity relay:** mark the campanile `isHub: true` (or a half-strength refresh) so it refreshes the Main Plaza's reach like a secondary plaza — cheaper than a plaza, and historically exactly what campaniles did: anchor a neighborhood. Reuses the one spatial system verbatim. Runs only while its bell-ringer is staffed (see Slight negatives).
+**Bell Tower as connectivity relay** *(built — July 2026)*: the campanile is `isHub: true` and refreshes the Main Plaza's reach like a secondary plaza — cheaper than a plaza, and historically exactly what campaniles did: anchor a neighborhood. `connectivity.ts` now derives its hub set from the metadata flag (previously hard-coded plaza ids), so `isHub` is honest. Built workerless with a 1.5 inspiration trickle; the bell-ringer staffing negative (see Slight negatives) is still open.
 
 ### 5. Artist-growth modifiers
 
@@ -119,7 +122,7 @@ A touch of downside makes a build a decision instead of a reflex. The rules: a n
 
 ## Palazzo: resolving the dual listing
 
-The main doc lists Palazzo as both a Civic landmark and Housing tier 4. **This doc collapses them:** a Palazzo is housing that also installs the next noble family from the seed-shuffled list as a commission requester — picking up after the 1–2 starting houses every run is dealt at game start (see [factions.md](factions.md)). One building, two effect slots (housing + commission unlock), and it makes the "named family palazzos" stretch item nearly free. Family offers skew prestige-heavy (the existing `mix: "prestige"` path). *Stretch: each palazzo also raises the open-offer cap by 1 — nobles keep the docket full.*
+The main doc lists Palazzo as both a Civic landmark and Housing tier 4. **This doc collapses them:** a Palazzo is housing *(built — July 2026: `housing: 12`)* that also installs the next noble family from the seed-shuffled list as a commission requester *(pending factions)* — picking up after the 1–2 starting houses every run is dealt at game start (see [factions.md](factions.md)). One building, two effect slots (housing + commission unlock), and it makes the "named family palazzos" stretch item nearly free. Family offers skew prestige-heavy (the existing `mix: "prestige"` path). *Stretch: each palazzo also raises the open-offer cap by 1 — nobles keep the docket full.*
 
 ---
 
@@ -136,4 +139,4 @@ The tension budget is already spent on supplier capacity and commission deadline
 
 ## Implementation note
 
-Most future buildings are ~10 lines each: a building def plus either a tag the commission offer generator checks or one term in an existing tick-loop sum. Specific yields (e.g. prestige per month) are balancing decisions made at implementation time — the numbers in this doc are starting points, not commitments. None of the effects above are built yet; the quick-win order is decoration trickles → chapel passive amenity → bell-tower hub flag → cathedral/palazzo requester gating.
+Most future buildings are ~10 lines each: a building def plus either a tag the commission offer generator checks or one term in an existing tick-loop sum. Specific yields (e.g. prestige per month) are balancing decisions made at implementation time — the numbers in this doc are starting points, not commitments. The July 2026 quick-win wave landed decoration trickles, chapel passive amenity, bell-tower hub, cathedral consecration lump, palazzo housing, and house rents; the big remaining piece is requester-pool shaping (cathedral elevation, palazzo noble installs), which waits on the factions phase.

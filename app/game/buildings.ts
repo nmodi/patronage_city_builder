@@ -64,8 +64,8 @@ export const BUILDING_TYPES = [
     // One central plinth (the piazzetta has no fountain).
     displaySlots: [{ kind: "plinth", cell: { x: 2, y: 2 } }],
   },
-  // ponytail: no effects yet — palazzo/cathedral will unlock noble/religious
-  // commissions in a later phase; for now they're landmark set pieces.
+  // ponytail: interim effects — palazzo/cathedral requester-pool shaping
+  // (noble installs, Church elevation) waits for the factions phase.
   {
     type: "city",
     id: "palazzo",
@@ -75,6 +75,7 @@ export const BUILDING_TYPES = [
     color: "#c9b183",
     footprint: { width: 10, depth: 8 },
     paved: true,
+    housing: 12,
     workersRequired: 0,
     maxWorkers: 0,
     displaySlots: [
@@ -96,6 +97,7 @@ export const BUILDING_TYPES = [
     color: "#d8d2c4",
     footprint: { width: 14, depth: 12 },
     paved: true,
+    prestigeOnBuild: 25, // the consecration moment
     workersRequired: 0,
     maxWorkers: 0,
     displaySlots: [
@@ -116,6 +118,7 @@ export const BUILDING_TYPES = [
     color: "#d8d2c4",
     footprint: { width: 5, depth: 8 },
     paved: true,
+    amenities: 10, // spiritual comfort — the one build-once, workerless service
     workersRequired: 0,
     maxWorkers: 0,
     displaySlots: [{ kind: "painting" }, { kind: "painting" }, { kind: "statue" }],
@@ -162,9 +165,9 @@ export const BUILDING_TYPES = [
     color: "#c1694f",
     footprint: { width: 4, depth: 4 },
     paved: true,
-    // generates: {
-    //   income: 5,
-    // },
+    generates: {
+      income: 2, // rent
+    },
     housing: 4,
     workersRequired: 0,
     maxWorkers: 0,
@@ -178,9 +181,9 @@ export const BUILDING_TYPES = [
     color: "#a8503a",
     footprint: { width: 4, depth: 4 },
     paved: true,
-    // generates: {
-    //   income: 5,
-    // },
+    generates: {
+      income: 5, // rent
+    },
     housing: 8,
     workersRequired: 0,
     maxWorkers: 0,
@@ -332,6 +335,7 @@ export const BUILDING_TYPES = [
     size: { width: 0.5, height: 0.7, depth: 0.5 },
     color: "#3f6b3a",
     footprint: { width: 2, depth: 2 },
+    generates: { inspiration: 0.5 },
   },
   {
     type: "decoration",
@@ -341,6 +345,7 @@ export const BUILDING_TYPES = [
     size: { width: 0.3, height: 1.4, depth: 0.3 },
     color: "#3f5c35",
     footprint: { width: 2, depth: 2 },
+    generates: { inspiration: 0.5 },
   },
   {
     type: "decoration",
@@ -350,6 +355,7 @@ export const BUILDING_TYPES = [
     size: { width: 2.8, height: 0.35, depth: 1.8 },
     color: "#55743c",
     footprint: { width: 6, depth: 4 },
+    generates: { inspiration: 0.5 },
   },
   {
     type: "decoration",
@@ -360,6 +366,7 @@ export const BUILDING_TYPES = [
     color: "#c8c2b4",
     footprint: { width: 3, depth: 3 },
     paved: true,
+    generates: { inspiration: 2 },
   },
   {
     type: "decoration",
@@ -371,6 +378,7 @@ export const BUILDING_TYPES = [
     footprint: { width: 1, depth: 1 },
     paved: true,
     linear: true,
+    generates: { inspiration: 0.25 }, // per cell — linear pieces are one origin tile per cell
   },
   {
     type: "decoration",
@@ -381,6 +389,7 @@ export const BUILDING_TYPES = [
     color: "#d8d2c4",
     footprint: { width: 2, depth: 2 },
     paved: true,
+    generates: { inspiration: 1.5 },
   },
   {
     type: "decoration",
@@ -390,6 +399,7 @@ export const BUILDING_TYPES = [
     size: { width: 2.8, height: 0.8, depth: 2.8 },
     color: "#75854d",
     footprint: { width: 6, depth: 6 },
+    generates: { inspiration: 0.5 },
   },
   {
     type: "decoration",
@@ -399,6 +409,7 @@ export const BUILDING_TYPES = [
     size: { width: 0.4, height: 0.25, depth: 0.4 },
     color: "#6b7d46",
     footprint: { width: 1, depth: 1 },
+    generates: { inspiration: 0.25 },
   },
   {
     type: "decoration",
@@ -408,6 +419,7 @@ export const BUILDING_TYPES = [
     size: { width: 0.4, height: 0.2, depth: 0.4 },
     color: "#9d9384",
     footprint: { width: 1, depth: 1 },
+    generates: { inspiration: 0.25 },
   },
   {
     type: "decoration",
@@ -417,6 +429,7 @@ export const BUILDING_TYPES = [
     size: { width: 0.9, height: 0.6, depth: 0.9 },
     color: "#877e70",
     footprint: { width: 2, depth: 2 },
+    generates: { inspiration: 0.25 },
   },
   {
     type: "decoration",
@@ -427,6 +440,7 @@ export const BUILDING_TYPES = [
     color: "#9a7b57",
     footprint: { width: 1, depth: 1 },
     linear: true,
+    generates: { inspiration: 0.05 }, // per cell
   },
   {
     type: "decoration",
@@ -437,6 +451,7 @@ export const BUILDING_TYPES = [
     color: "#d8d2c4",
     footprint: { width: 1, depth: 1 },
     linear: true,
+    generates: { inspiration: 0.05 }, // per cell
   },
   {
     type: "decoration",
@@ -447,6 +462,10 @@ export const BUILDING_TYPES = [
     color: "#d8d2c4",
     paved: true,
     footprint: { width: 3, depth: 3 },
+    generates: { inspiration: 1.5 },
+    // Campaniles anchor a neighborhood: a cheap connectivity relay that
+    // refreshes the Main Plaza's reach like a secondary plaza.
+    isHub: true,
   },
   {
     // A statue pedestal placeable anywhere; 3×3 so the plinth centers on a cell.

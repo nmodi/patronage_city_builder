@@ -40,14 +40,15 @@ const noRandomEvent = () => 1;
   assert.equal(out.tickCount, 11);
 }
 
-// A staffed market produces florins and population still moves by only one.
+// A staffed market produces florins (plus the townhouse's rent) and
+// population still moves by only one.
 {
   const tiles = {
     "0,0": tile("townhouse", 0, 0),
     "5,5": inactive("market", 5, 5),
   };
   const out = advanceTick(snapshot(tiles, { population: 3 }), noRandomEvent);
-  assert.equal(out.florins, 110);
+  assert.equal(out.florins, 115);
   assert.equal(out.population, 4);
   assert.equal(out.tiles["5,5"]?.workers, 3);
 }
