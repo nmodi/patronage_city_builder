@@ -26,12 +26,11 @@ Every effect below plugs into one of these existing anchor points — which is w
 
 ### 1. Unlock a commission lane
 
-The most important slot — landmarks widen the *input* to the core loop rather than adding parallel systems. The effect is felt entirely through the Phase 8 offer stream: new requesters, bigger rewards, new artwork types. Concretely, gating means adding/removing entries in `REQUESTERS` based on which buildings exist.
+The most important slot — landmarks widen the *input* to the core loop rather than adding parallel systems. The effect is felt entirely through the Phase 8 offer stream: new requesters, bigger rewards, new artwork types. Concretely, gating is either a new `REQUESTERS` entry (Cathedral, Palazzo — the only two requester sources, see [factions.md](factions.md)) or a new commission *lane* the existing requesters draw from (everything else below).
 
 | Building | Unlocks |
 |---|---|
 | Cathedral | Religious commissions — "The Church" enters the requester pool only once a cathedral stands |
-| Guildhall | Craft commissions |
 | Palazzo | That noble family's commissions (see below) |
 | Baptistery | Higher-*tier* Church commissions |
 | Banking House | Larger noble commissions |
@@ -84,8 +83,8 @@ School speeds apprentice XP; Anatomical Theatre gives a technique bump. Both plu
 
 The slots above say *what* each building does; these are the cheap levers that express them — each one line in an existing function. New buildings should pick from this list before inventing anything:
 
-1. **Requester-pool gating** — building existence adds/removes `REQUESTERS` entries (Cathedral→Church, Palazzo→named family, Guildhall→guilds).
-2. **Offer-stream shaping** — derive `COMMISSION_OFFER_CHANCE` / `MAX_OPEN_OFFERS` / `OFFER_EXPIRY_MONTHS` from buildings (Guildhall: open-offer cap +1; Banking House: longer offer expiry — "the bank underwrites patience").
+1. **Requester-pool gating** — building existence adds/removes `REQUESTERS` entries; exactly two sources (Cathedral→Church, Palazzo→named family — see [factions.md](factions.md)).
+2. **Offer-stream shaping** — derive `COMMISSION_OFFER_CHANCE` / `MAX_OPEN_OFFERS` / `OFFER_EXPIRY_MONTHS` from buildings (Banking House: longer offer expiry — "the bank underwrites patience").
 3. **Payout skewing** — flat % on commission completion (Banking House +15% florins; Baptistery +15% prestige on Church works).
 4. **Arrival shaping** — terms in `maybeArriveArtist` (a Loggia or "Osteria degli Artisti" raises artist arrival chance).
 5. **Connectivity relays** — `isHub` on non-plaza buildings (Bell Tower now; maybe Market later, piazza-del-mercato style).

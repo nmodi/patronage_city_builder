@@ -110,9 +110,13 @@ Below minimum: inactive (desaturated, tooltip explains). At minimum: base effici
 
 ## Commission Requesters (formerly "Factions")
 
-Commissions arrive from flavorful requesters: **the Church**, **named noble families** (Medici, Strozzi, Pazzi…), and **the Guilds**. Requesters shape a commission's flavor — what's asked for, the artwork's name, the reward mix (Church pays florins, nobles pay prestige, guilds pay economic perks).
+Commissions arrive from flavorful requesters: **the Church** and **named noble families** (Medici, Strozzi, Pazzi…). Requesters shape a commission's flavor — what's asked for, the artwork's name, the reward mix (Church pays florins, nobles pay prestige).
+
+*(Earlier drafts included the Guilds as a third requester group. Cut — a tighter two-patron cast; tapestry and craft works are simply asked for by the Church and the families. The built `REQUESTERS` table still lists two guild entries, slated for removal whenever it's next touched.)*
 
 **No relationship meters, no neglect consequences, no rivalry systems.** Requesters are narrative texture on commissions, not a management layer. (If the game needs more tension later, meters can return — but they must earn their UI panel.)
+
+A fuller faction system — taste profiles, one-way favor ladders, signature commission chains, a seed-rolled roster — is designed in [factions.md](factions.md). Still flavor-first: no meter ever goes down, no neglect consequences, no faction panel.
 
 ---
 
@@ -158,7 +162,7 @@ Materials are not consumed — a working artist holds a supplier slot until the 
 **All artwork is commissioned.** There is no free-play "start artwork" button — commissions are how art gets made, giving every work a name, a patron, and stakes.
 
 Each commission has:
-- A **requester** (Church / noble family / guild) — flavor and reward mix
+- A **requester** (Church / noble family) — flavor and reward mix
 - A **required artist type** (painter, sculptor, …)
 - A **required material** (implies supplier capacity must be available) — *(built)* sculpture commissions roll marble or bronze
 - A **duration** in months
@@ -192,7 +196,6 @@ The full roster below is the long-term target, implemented incrementally. *(buil
 - **Plaza** / **Small Plaza** / **Town Center Plaza** *(built)* — generates Inspiration, displays Works. The Town Center Plaza is the **Main Plaza** — the connectivity hub; Plazas and Small Plazas (a 5-cell piazzetta, chapel-width) are secondary hubs that refresh its reach
 - **Cathedral** *(model built — placeable landmark; effect designed in [building-effects.md](building-effects.md), not yet wired)* — unlocks religious commissions
 - **Market** *(built)* — generates Florins for now. **Planned repurpose:** once a richer economy system takes over money-making, the Market becomes an overflow supply source — spend florins there for extra material capacity when your suppliers are at their limits.
-- **Guildhall** — unlocks craft commissions
 - **Town Hall (Palazzo Comunale)** — the seat of the player's government: a crenellated civic fortress with a tall off-center tower (Palazzo Vecchio / Bargello type). Effect open — candidates: unlocks civic commissions, or a flat prestige boost. Like the Cathedral, it may break the skyline; civic owns that privilege
 - **Palazzo** *(model built — placeable landmark; effect designed in [building-effects.md](building-effects.md), not yet wired)* — unlocks noble-family commissions (housing + requester unlock — the dual listing is collapsed there)
 - **Banking House** — enables larger noble commissions, boosts florins
@@ -228,7 +231,7 @@ Workshops are per-discipline: each hosts and spawns only its own artist type.
 - **Spice Trader** — prestige + florin boost
 
 ### River & Waterfront (future scope — only meaningful on maps with water)
-Historically the Arno banks were industry (dyers' quarter, the Wool Guild's tiratoi drying sheds, mills on the pescaia weir); ports had docks, fondaco warehouses, customs houses. Inland maps get the river-industry set, coastal maps the port set:
+Historically the Arno banks were industry (dyers' quarter, the tiratoi wool-drying sheds, mills on the pescaia weir); ports had docks, fondaco warehouses, customs houses. Inland maps get the river-industry set, coastal maps the port set:
 
 - **Dyeworks / Tiratoio** — wool-industry supplier (pairs with the Wool Merchant; serves tapestry/textile commissions)
 - **Water Mill** — florin generator; its weir (pescaia) across the river is the visual anchor
@@ -256,7 +259,7 @@ When a building cannot function it desaturates, activity animations stop, and th
 
 Reaching a **prestige threshold** triggers the Renaissance — a soft ending, not a game-over screen:
 
-- A festival event fires; a title card: *"The Renaissance has come to your city."*
+- A title card: *"The Renaissance has come to your city."* *(An earlier draft added a festival event — cut; the title card is the celebration.)*
 - Play continues into a Golden Age — the city you keep living in
 
 Start simple: one number, one celebration. If a single milestone later proves too thin, it can grow extra conditions (works across art forms, master artists in multiple disciplines, sustained inspiration) — but that's a future decision, not current scope.
@@ -300,14 +303,14 @@ Left panel: artist roster (replaces the faction bars from earlier drafts). Right
 - **11 Artist training & light teaching** — DONE. XP is now continuous instead of purely completion-driven: every artist in a staffed, active workshop gains small passive practice XP each month, multiplied when a strictly higher-ranked workshop-mate shares the space (generalizes "Master teaches apprentices" to any rank gap), and completing a work still grants its one-time bonus on top. Rank-up thresholds are unchanged. All rates live in `XP_RATES` (`app/game/artists.ts`, next to `RANK_XP`) for easy tuning. No UI or save changes — rank labels already surfaced rank-ups, and `Artist.xp` was already a fractional-friendly optional field.
 
 ### Next
-- **12 — Renaissance milestone**: prestige threshold → festival event + title card; play continues.
+- **12 — Renaissance milestone**: prestige threshold → title card; play continues.
 
 ### Later / stretch
 - Richer economy system (replaces the Market as the primary florin source; Market repurposed as overflow material supply, bought with florins when suppliers are maxed)
 - Seed system — a run seed randomizes each new game. Randomly generated per new game as a relatively short alpha string (human-readable/shareable), viewable in the settings menu. *Partially built: the `seed` field now exists (`app/game/seed.ts`, persisted in the store, shown in Settings) and deterministically picks the starting city name (`pickCityName`) — and, since the water pass, the map archetype, river course, and coastline (`app/game/water.ts` via the store's `mapSeed`, which equals the run seed for new games). Resources/factions below are still open.* It should influence:
   - Terrain: heights and wilderness scatter *(built — July 2026)*: `createTerrain` takes `mapSeed` and derives namespaced streams via `seededRng` — `hills:` (sine-octave phases + ±20% frequency jitter; amplitude fixed), `scatter:` (returned as `terrain.rand`, drives `assetLibrary.scatterEnvironment`: tree clumps, shrubs, rocks, vineyard patches, fence/wall runs), `fields:` (field-patch colors). Null `mapSeed` (pre-water saves) falls back to the old fixed constants, so legacy scenery is pixel-identical. (`?demo` now runs on the fixed `DEMO_MAP_SEED` — an inland river — so it gets seeded terrain like a real game.) Note: placed-building variety stays position-hashed, deliberately not seeded — see [kitbashing.md](kitbashing.md) (Design rules).
   - Available resources on the map (which suppliers/materials this run offers) — designed in [map-resources.md](map-resources.md)
-  - Faction archetypes / personality types — different archetypes value different things and ask for different commissions
+  - Faction archetypes / personality types — different archetypes value different things and ask for different commissions — designed in [factions.md](factions.md)
   - Types of commissions that pop up
   - (Open list — more dimensions as they come up)
 - Per-plaza paving choice — restyle any placed plaza in-game between the three paving treatments. All three drawers already exist in `render/paths.ts` (previewable via the `?plaza=` dev flag):
