@@ -120,7 +120,7 @@ Commissions arrive from flavorful requesters: **the Church** and **named noble f
 
 **No relationship meters, no neglect consequences, no rivalry systems.** Requesters are narrative texture on commissions, not a management layer. (If the game needs more tension later, meters can return — but they must earn their UI panel.)
 
-A fuller faction system — taste profiles, one-way favor ladders, signature commission chains, a seed-rolled roster — is designed in [factions.md](factions.md). Still flavor-first: no meter ever goes down, no neglect consequences, no faction panel.
+A fuller faction system — taste profiles, one-way favor ladders, signature commission chains, a seed-rolled roster — is designed in [factions.md](factions.md). Still flavor-first: no meter ever goes down, no neglect consequences, no faction panel — and the requester pool is never empty, so commissions flow from day one (landmarks gate grandeur and roster growth, never the offer stream).
 
 ---
 
@@ -198,10 +198,10 @@ The full roster below is the long-term target, implemented incrementally. *(buil
 
 ### Civic / Landmark
 - **Plaza** / **Small Plaza** / **Town Center Plaza** *(built)* — generates Inspiration, displays Works. The Town Center Plaza is the **Main Plaza** — the connectivity hub; Plazas and Small Plazas (a 5-cell piazzetta, chapel-width) are secondary hubs that refresh its reach
-- **Cathedral** *(model built — placeable landmark; effect designed in [building-effects.md](building-effects.md), not yet wired)* — unlocks religious commissions
+- **Cathedral** *(model built — placeable landmark; effect designed in [building-effects.md](building-effects.md), not yet wired)* — unlocks the Church's grander commissions (the Church itself offers from day one — see [factions.md](factions.md))
 - **Market** *(built)* — generates Florins for now. **Planned repurpose:** once a richer economy system takes over money-making, the Market becomes an overflow supply source — spend florins there for extra material capacity when your suppliers are at their limits.
 - **Town Hall (Palazzo Comunale)** — the seat of the player's government: a crenellated civic fortress with a tall off-center tower (Palazzo Vecchio / Bargello type). Effect open — candidates: unlocks civic commissions, or a flat prestige boost. Like the Cathedral, it may break the skyline; civic owns that privilege
-- **Palazzo** *(model built — placeable landmark; effect designed in [building-effects.md](building-effects.md), not yet wired)* — unlocks noble-family commissions (housing + requester unlock — the dual listing is collapsed there)
+- **Palazzo** *(model built — placeable landmark; effect designed in [building-effects.md](building-effects.md), not yet wired)* — installs the next noble family as a requester (housing + requester unlock — the dual listing is collapsed there)
 - **Banking House** — enables larger noble commissions, boosts florins
 
 ### Production / Artistic
