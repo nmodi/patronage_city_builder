@@ -62,7 +62,7 @@ const keys = (r: { positions: Array<{ x: number; y: number }> }) =>
   assert.ok(keys(r).includes("1,1") && keys(r).includes("2,1"));
 }
 
-// allowDiagonal=false falls back to cardinal (bridge / dirt_path / fences).
+// allowDiagonal=false falls back to cardinal (linear decorations: fences/walls).
 {
   const r = buildRoadStretch({ x: 0, y: 0 }, { x: 5, y: 5 }, 1, false);
   assert.equal(r.rotation, undefined);

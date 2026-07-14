@@ -583,8 +583,11 @@ export function createTileRenderer(scene: Scene, shadowGenerator: ShadowGenerato
       roadRenderer.update(key, previous, next);
       const wasOccupied = previous != null;
       const isOccupied = next != null;
-      const wasDirt = previous?.buildingId === "dirt_path";
-      const isDirt = next?.buildingId === "dirt_path";
+      // Only cardinal dirt uses the raster overlay; diagonal dirt (rotation set)
+      // renders through roadRenderer's ribbon batch. It still enters occupiedCells
+      // below, so adjoining cardinal dirt drops its rim against the ribbon.
+      const wasDirt = previous?.buildingId === "dirt_path" && previous.rotation == null;
+      const isDirt = next?.buildingId === "dirt_path" && next.rotation == null;
       if (wasOccupied !== isOccupied || wasDirt !== isDirt) {
         topologyChangedKeys.add(key);
         if (isOccupied) occupiedCells.add(key);

@@ -16,7 +16,7 @@ export interface Tile {
   isActive: boolean;
   variant?: number;
   // Buildings: 0-3 quarter turns, 4-7 = quarter (r-4) + 45° (diagonal mask
-  // footprint — see buildings.ts footprintMask). Paved roads: undefined |
+  // footprint — see buildings.ts footprintMask). Roads (all variants): undefined |
   // 1 (NE) | 3 (NW) ribbon orientation — see roadStretch.ts.
   rotation?: number;
   workers: number;

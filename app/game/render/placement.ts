@@ -241,11 +241,12 @@ export function createPlacementController(scene: Scene) {
   }
 
   function updateRoadPlacement(state: GameState, buildingId: BuildingId, currentPosition: GridPos) {
-    const width = BUILDING_METADATA_BY_ID[buildingId]?.roadWidth ?? 1;
-    // Diagonals are paved-roads-only: dirt_path autotiling and bridge parapets
-    // are cardinal, and this function also serves linear decorations
-    // (fence/stone_wall/colonnade) whose segment renderer is cardinal.
-    const allowDiagonal = buildingId === "path" || buildingId === "road" || buildingId === "avenue";
+    const metadata = BUILDING_METADATA_BY_ID[buildingId];
+    const width = metadata?.roadWidth ?? 1;
+    // Every road variant (path/road/avenue/dirt_path/bridge) drags diagonally;
+    // linear decorations (fence/stone_wall/colonnade) share this function but
+    // their segment renderer is cardinal-only, so they stay grid-aligned.
+    const allowDiagonal = metadata?.type === "road";
     const { positions, rotation } = buildRoadStretch(
       roadAnchor ?? currentPosition,
       currentPosition,

@@ -5,7 +5,7 @@ import type { Scene } from "@babylonjs/core/scene";
 
 import { CELL_SIZE } from "~/game/constants";
 import { mulberry32 } from "~/game/random";
-import { drawDirtTexture } from "./dirtTexture";
+import { DIRT_EDGE, drawDirtTexture } from "./dirtTexture";
 
 // Procedural limestone paving for roads and plaza pads. The Kenney kit's
 // colormap UVs are flat-color palette lookups, so surface detail has to come
@@ -247,6 +247,30 @@ export function getRoadMaterial(scene: Scene) {
   return roadMaterial;
 }
 
+let dirtRibbonMaterial: StandardMaterial | null = null;
+
+/** Packed earth for diagonal dirt ribbons. Cardinal dirt paths draw through the
+ * raster overlay (`dirtPathOverlay.ts`), which is grid-axis-aligned and can't
+ * follow a 45° run, so diagonal dirt renders as decal quads like the paved
+ * diagonals. The overlay's darker grass rim is baked onto the long (v) edges;
+ * symmetric top/bottom so the DynamicTexture invertV orientation is moot. */
+export function getDirtRibbonMaterial(scene: Scene) {
+  if (dirtRibbonMaterial) return dirtRibbonMaterial;
+  const size = 128;
+  const tex = new DynamicTexture("dirt-ribbon-tex", { width: size, height: size }, scene, true);
+  const ctx = tex.getContext() as CanvasRenderingContext2D;
+  drawDirtTexture(ctx, size);
+  const rim = Math.round(size * 0.18); // matches the overlay's 18%-of-cell rim
+  ctx.fillStyle = DIRT_EDGE;
+  ctx.fillRect(0, 0, size, rim);
+  ctx.fillRect(0, size - rim, size, rim);
+  tex.update();
+  dirtRibbonMaterial = new StandardMaterial("dirt-ribbon-mat", scene);
+  dirtRibbonMaterial.specularColor = Color3.Black();
+  dirtRibbonMaterial.diffuseTexture = tex;
+  return dirtRibbonMaterial;
+}
+
 export function disposePathMaterials() {
   for (const mat of [...apronMaterials.values(), ...plazaMaterials.values()]) {
     mat.diffuseTexture?.dispose();
@@ -257,4 +281,7 @@ export function disposePathMaterials() {
   roadMaterial?.diffuseTexture?.dispose();
   roadMaterial?.dispose();
   roadMaterial = null;
+  dirtRibbonMaterial?.diffuseTexture?.dispose();
+  dirtRibbonMaterial?.dispose();
+  dirtRibbonMaterial = null;
 }

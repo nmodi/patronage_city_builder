@@ -3,7 +3,7 @@
 import { GRID_SIZE } from "./constants.ts";
 import type { GridPos } from "./grid.ts";
 
-// Paved road tiles store their ribbon orientation in Tile.rotation:
+// Road tiles (all variants) store their ribbon orientation in Tile.rotation:
 // undefined = cardinal (unrotated quad — exactly the pre-diagonal behavior,
 // so old saves are untouched), ROAD_DIAG_NE = grid direction ±(1,1),
 // ROAD_DIAG_NW = ±(1,-1). Only two values exist because the road decal is
