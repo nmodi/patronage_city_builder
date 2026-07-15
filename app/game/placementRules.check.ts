@@ -118,8 +118,17 @@ assert.equal(
     const causeway = { "6,6": tile("bridge", 6, 6) };
     assert.equal(planPlacement(snapshot(causeway), [{ x: 6, y: 6 }], "market_stall"), null);
 
-    const plaza = stamp("town_center_plaza", { x: 30, y: 30 });
-    assert.equal(planPlacement(snapshot(plaza), [{ x: 30, y: 30 }], "market_stall"), null);
+    // Plazas: the outer ring is fair game (non-origin), the interior and the
+    // origin cell are not — and eating a rim cell doesn't make the next ring
+    // placeable (mask-based rim, no inward erosion).
+    const plaza = stamp("town_center_plaza", { x: 30, y: 30 }); // 12x12
+    assert.equal(planPlacement(snapshot(plaza), [{ x: 30, y: 30 }], "market_stall"), null); // origin
+    assert.equal(planPlacement(snapshot(plaza), [{ x: 35, y: 35 }], "market_stall"), null); // interior
+    const rimPlan = planPlacement(snapshot(plaza), [{ x: 35, y: 30 }], "market_stall"); // top edge
+    assert.ok(rimPlan);
+    assert.ok(rimPlan.freeCells.has("35,30"));
+    const eaten = { ...plaza, "35,30": tile("market_stall", 35, 30) };
+    assert.equal(planPlacement(snapshot(eaten), [{ x: 35, y: 31 }], "market_stall"), null); // 2nd ring
     const house = { "5,5": tile("cottage", 5, 5) };
     assert.equal(planPlacement(snapshot(house), [{ x: 5, y: 5 }], "market_stall"), null);
     assert.ok(planPlacement(snapshot(), [{ x: 5, y: 5 }], "market_stall"));
@@ -129,6 +138,8 @@ assert.equal(
     agrees(snapshot(bridgeOnWater, 10_000, waterSeed), { x, y }, "market_stall");
     agrees(snapshot(causeway), { x: 6, y: 6 }, "market_stall");
     agrees(snapshot(plaza), { x: 30, y: 30 }, "market_stall");
+    agrees(snapshot(plaza), { x: 35, y: 30 }, "market_stall");
+    agrees(snapshot(plaza), { x: 35, y: 35 }, "market_stall");
     agrees(snapshot(), { x: 5, y: 5 }, "market_stall");
   }
 }

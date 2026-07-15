@@ -7,7 +7,8 @@ import {
   type BuildingId,
 } from "./buildings.ts";
 import { GRID_SIZE } from "./constants.ts";
-import type { GridPos, TileMap } from "./grid.ts";
+import { PLAZA_IDS } from "./connectivity.ts";
+import type { GridPos, Tile, TileMap } from "./grid.ts";
 import type { BuildingMetadata } from "./types.ts";
 import { getWaterCells } from "./water.ts";
 
@@ -27,33 +28,61 @@ export interface PlacementPlan {
   totalCost: number;
 }
 
+const CELL_NEIGHBORS = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+] as const;
+
+/** A plaza-footprint cell on the plaza's outer ring: some 4-neighbor offset
+ * falls outside the plaza's footprint mask. Mask-based (not ownership-based)
+ * so stalls can't erode a plaza inward ring by ring, and correct for diagonal
+ * plazas. The origin cell stays off-limits — it carries the building. */
+function isPlazaRimCell(tile: Tile, x: number, y: number): boolean {
+  if (tile.type !== "city" || !PLAZA_IDS.has(tile.buildingId) || tile.isOrigin) return false;
+  const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
+  if (!metadata) return false;
+  const { cells } = footprintMask(metadata, tile.rotation);
+  const inMask = (dx: number, dy: number) =>
+    cells.some((c) => c.x === dx && c.y === dy);
+  const relX = x - tile.origin.x;
+  const relY = y - tile.origin.y;
+  return CELL_NEIGHBORS.some(([nx, ny]) => !inMask(relX + nx, relY + ny));
+}
+
 /** One footprint cell, shared by the batch planner and the preview check:
  * occupied cells block unless a decoration overlaps a non-origin cell or a
- * placesOnRoads building overwrites a plain road cell, and free cells block
- * on water for everything but bridges. */
+ * placesOnRoads building overwrites a plain road cell / plaza rim cell, and
+ * free cells block on water for everything but bridges. */
 function checkCell(
   tiles: TileMap,
   water: ReadonlySet<string>,
-  key: string,
+  x: number,
+  y: number,
   isOriginCell: boolean,
   canOverlap: boolean,
   isBridge: boolean,
   onRoad: boolean
 ): "blocked" | "occupied" | "free" {
+  const key = `${x},${y}`;
   const tile = tiles[key];
   if (tile) {
-    // Overwrite a plain road cell (market stall). Excluded: bridge decks and
-    // water (the water check below is skipped for occupied cells), diagonal
-    // ribbon cells (rotation 1|3 — a stall would notch the 45° staircase),
-    // and everything non-road (a plaza's shared footprint must stay whole).
-    if (
-      onRoad &&
-      tile.type === "road" &&
-      tile.buildingId !== "bridge" &&
-      tile.rotation == null &&
-      !water.has(key)
-    ) {
-      return "free";
+    if (onRoad) {
+      // Overwrite a plain road cell (market stall). Excluded: bridge decks and
+      // water (the water check below is skipped for occupied cells), diagonal
+      // ribbon cells (rotation 1|3 — a stall would notch the 45° staircase).
+      if (
+        tile.type === "road" &&
+        tile.buildingId !== "bridge" &&
+        tile.rotation == null &&
+        !water.has(key)
+      ) {
+        return "free";
+      }
+      // ... or a plaza's outer-ring cell (stalls ring a piazza; the interior —
+      // and every plinth slot cell, all interior today — stays clear).
+      if (isPlazaRimCell(tile, x, y)) return "free";
     }
     return !canOverlap || isOriginCell ? "blocked" : "occupied";
   }
@@ -89,7 +118,8 @@ export function planPlacement(
       const cell = checkCell(
         state.map.tiles,
         water,
-        key,
+        x,
+        y,
         offset.x === 0 && offset.y === 0,
         canOverlap,
         isBridge,
@@ -132,11 +162,11 @@ export function canPlaceAt(
     const x = position.x + offset.x;
     const y = position.y + offset.y;
     if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) return false;
-    const key = `${x},${y}`;
     const cell = checkCell(
       state.map.tiles,
       water,
-      key,
+      x,
+      y,
       offset.x === 0 && offset.y === 0,
       canOverlap,
       isBridge,

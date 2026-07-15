@@ -629,16 +629,18 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
     ],
     fit: 1,
   },
-  // Single street stall (kit-native 1x1, fronting +X like the market's rows).
-  // Awning fabric hash-varies across the market's four cloth combos; facing is
-  // seeded but R overrides it (a stall should face along or across its street).
+  // Single street stall: the kit stall reshaped one-sided (make-stall-side.py
+  // slides the awning ridge to the back, long slope presenting +X to the
+  // street — the market's rows keep the symmetric gable). Awning fabric
+  // hash-varies across the market's four cloth combos; facing is seeded but R
+  // overrides it (a stall should face along or across its street).
   market_stall: {
     front: [1, 0],
     variants: [
-      { file: TOWN + "stall-red.glb", tint: "cloth1" },
-      { file: TOWN + "stall-green.glb", tint: "cloth1" },
-      { file: TOWN + "stall-red.glb", tint: "cloth2" },
-      { file: TOWN + "stall-green.glb", tint: "cloth2" },
+      { file: TOWN + "stall-side-red.glb", tint: "cloth1" },
+      { file: TOWN + "stall-side-green.glb", tint: "cloth1" },
+      { file: TOWN + "stall-side-red.glb", tint: "cloth2" },
+      { file: TOWN + "stall-side-green.glb", tint: "cloth2" },
     ],
     fit: 1,
     randomRotate: "quarter",
