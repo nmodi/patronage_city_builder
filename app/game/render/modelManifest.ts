@@ -916,14 +916,14 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
     parts: [{ file: TOWN + "fountain-round-detail.glb" }],
     fit: 0.85,
   },
-  // Per-cell colonnade: a thick column per cell under a full-cell entablature
-  // (consecutive cells' entablature blocks butt into a continuous cornice).
-  // Column width stays under the cell so the entablature — not the column —
-  // drives the fit and stays gapless. Drag a run like a road.
+  // Per-cell colonnade: one generated arcade bay per cell (proc:arch-bay —
+  // piers + arch + a solid top band that reads as the cornice). Bays are 1 kit
+  // wide and tile flush: authored spanning ±0.5 on Z opening on ±X, so a +90°
+  // yaw runs them along the drag with the arches facing out; the along
+  // machinery adds its own +90° for Z runs. Drag a run like a road.
   colonnade: {
     segment: {
-      core: [{ file: TOWN + "pillar-stone.glb", scale: [1.7, 1.55, 1.7] }],
-      along: [{ file: "proc:block", position: [0, 1.5, 0], scale: [1, 0.13, 0.72] }],
+      along: [{ file: "proc:arch-bay", rotationY: Math.PI / 2, scale: [1, 1.4, 1] }],
     },
     fit: 1.0,
   },
