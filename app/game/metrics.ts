@@ -3,6 +3,7 @@ import { BASE_POPULATION_CAP } from "./constants.ts";
 import { computePlazaConnectivity, connectionBonusOf } from "./connectivity.ts";
 import { displayBoost } from "./display.ts";
 import type { TileMap } from "./grid.ts";
+import { trafficFactor } from "./traffic.ts";
 
 export interface CityMetrics {
   housing: number;
@@ -13,7 +14,8 @@ export interface CityMetrics {
 export function computeCityMetrics(
   tiles: TileMap,
   connected = computePlazaConnectivity(tiles),
-  displayCounts?: Map<string, number> // host origin key → displayed-work count
+  displayCounts?: Map<string, number>, // host origin key → displayed-work count
+  population = 0 // feeds the foot-traffic factor; omitted = traffic muted
 ): CityMetrics {
   let housing = 0;
   let amenities = BASE_POPULATION_CAP;
@@ -23,7 +25,10 @@ export function computeCityMetrics(
     const metadata = BUILDING_METADATA_BY_ID[tile.buildingId];
     if (!metadata) continue;
     const boost =
-      (1 + connectionBonusOf(metadata) * (connected.get(key) ?? 0)) *
+      (1 +
+        connectionBonusOf(metadata) *
+          (connected.get(key) ?? 0) *
+          trafficFactor(metadata, key, tiles, population)) *
       displayBoost(displayCounts?.get(key) ?? 0);
     housing += Math.round((metadata.housing ?? 0) * boost);
     if (tile.isActive) amenities += Math.round((metadata.amenities ?? 0) * boost);

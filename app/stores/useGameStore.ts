@@ -287,7 +287,7 @@ const initializer: StateCreator<GameState> = (set, get) => ({
   getHousing: () => {
     const tiles = get().map.tiles;
     const counts = computeDisplaySummary(tiles, get().artworks).counts;
-    return computeCityMetrics(tiles, undefined, counts).housing;
+    return computeCityMetrics(tiles, undefined, counts, get().population).housing;
   },
 
   getCalendarLabel: () => formatMonth(get().time.tickCount),

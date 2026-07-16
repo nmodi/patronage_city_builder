@@ -15,6 +15,7 @@ import {
   MATERIAL_USERS,
 } from "~/game/materials";
 import { getRazeSalvage } from "~/game/raze";
+import { trafficFactor } from "~/game/traffic";
 import type { BuildingMetadata } from "~/game/types";
 import { staffingEfficiency } from "~/game/workers";
 import { RAZE_TOOL, useGameStore } from "~/stores/useGameStore";
@@ -28,11 +29,12 @@ function getActiveEffects(
   metadata: BuildingMetadata,
   workers: number,
   plazaStrength: number,
-  displayedCount: number
+  displayedCount: number,
+  traffic: number
 ) {
   const effects: string[] = [];
   const displayMult = displayBoost(displayedCount);
-  const hostBoost = (1 + connectionBonusOf(metadata) * plazaStrength) * displayMult;
+  const hostBoost = (1 + connectionBonusOf(metadata) * plazaStrength * traffic) * displayMult;
   const multiplier =
     staffingEfficiency(metadata.workersRequired ?? 0, metadata.maxWorkers ?? 0, workers) * hostBoost;
 
@@ -49,9 +51,12 @@ function getActiveEffects(
     effects.push(`+${Math.round(metadata.housing * hostBoost)} housing`);
   }
   if (plazaStrength > 0) {
-    effects.push(
-      `Plaza connection: +${Math.round(connectionBonusOf(metadata) * plazaStrength * 100)}%`
-    );
+    const pct = Math.round(connectionBonusOf(metadata) * plazaStrength * traffic * 100);
+    if (!metadata.footTraffic) {
+      effects.push(`Plaza connection: +${pct}%`);
+    } else if (pct > 0) {
+      effects.push(`Foot traffic: +${pct}%`);
+    }
   }
   if (displayedCount > 0) {
     effects.push(`Works on display: ${displayedCount} (+${Math.round((displayMult - 1) * 100)}%)`);
@@ -68,6 +73,7 @@ export function BuildingTooltip() {
   const artworks = useGameStore((s) => s.artworks);
   const commissions = useGameStore((s) => s.commissions);
   const tiles = useGameStore((s) => s.map.tiles);
+  const population = useGameStore((s) => s.population);
   const isRazing = useGameStore((s) => s.map.selectedBuilding === RAZE_TOOL);
   const mouse = useRef({ x: 0, y: 0 });
   const boxRef = useRef<HTMLDivElement>(null);
@@ -109,8 +115,12 @@ export function BuildingTooltip() {
   const displayedCount = metadata.displaySlots
     ? artworks.filter((w) => w.displayedAt?.key === originKey).length
     : 0;
+  const traffic = metadata.footTraffic
+    ? trafficFactor(metadata, originKey, tiles, population)
+    : 1;
+  const trafficPct = Math.round(connectionBonusOf(metadata) * plazaStrength * traffic * 100);
   const activeEffects = isActive
-    ? getActiveEffects(metadata, tile.workers, plazaStrength, displayedCount)
+    ? getActiveEffects(metadata, tile.workers, plazaStrength, displayedCount, traffic)
     : [];
 
   // Material supply status (Phase 7): citywide per-material totals, so a
@@ -174,6 +184,11 @@ export function BuildingTooltip() {
         {bonusEligible && plazaStrength === 0 && (
           <div className="mt-1 text-sm italic text-ink-faint">
             Link to a plaza with roads: up to +{Math.round(connectionBonusOf(metadata) * 100)}%
+          </div>
+        )}
+        {metadata.footTraffic && plazaStrength > 0 && trafficPct === 0 && (
+          <div className="mt-1 text-sm italic text-ink-faint">
+            Foot traffic grows with townsfolk and homes in walking reach
           </div>
         )}
         {isRazing && (

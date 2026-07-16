@@ -24,6 +24,18 @@ export const MAX_STAFFING_BONUS = 0.5; // +50% output at max staffing vs. minimu
 export const PLAZA_CONNECTION_BONUS = 0.25; // at full strength
 export const PLAZA_REACH = 30; // road cells (0.5 world units each) from the nearest hub until the bonus fades to 0
 
+// --- Foot traffic (traffic.ts) ---
+// Bustle: the decorative-crowd curve (crowdCurve in crowd.ts) normalized —
+// 60 figures ⇔ pop ≈ 64, a solid mid-game city. In the 1:1 crowd regime every
+// new resident moves bustle ~1.7%, so the stall's tooltip climbs visibly.
+export const BUSTLE_FULL = 60;
+// Catchment: housing capacity in walking reach for full traffic — six
+// cottages (housing 4) or three townhouses (housing 8); a dense quarter
+// saturates it. Reach is PLAZA_REACH / 2: you'll walk half as far to a stall
+// as a plaza's pull radiates.
+export const CATCHMENT_FULL = 24;
+export const CATCHMENT_REACH = 15; // network cells from the stall
+
 // --- Artists & XP (artists.ts) ---
 export const ARTIST_ARRIVAL_CHANCE = 0.1; // per month, when a slot is open
 export const ARTIST_ARRIVAL_COOLDOWN_MONTHS = 2;

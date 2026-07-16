@@ -66,7 +66,7 @@ One number per building, feeding an existing headline resource. Subject to dimin
 
 ### 3. Population thresholds
 
-Service buildings (Bakery, Tavern, Bathhouse, Apothecary, Public Well, Market Stall) raise the amenity ceiling while staffed. Already built; every future service building does exactly this and nothing more.
+Service buildings (Bakery, Tavern, Bathhouse, Apothecary, Public Well, Market Stall) raise the amenity ceiling while staffed. Already built; every future service building does exactly this and nothing more. (The Market Stall's amenities additionally scale with foot traffic — bustle × housing catchment, see the design doc's Market Stall entry.)
 
 **Chapel** joins this slot with a twist *(built — July 2026)*: flat `amenities: +10` with **zero workers required** — the one build-once, truly passive service ("spiritual comfort"). That's what differentiates it from the staffed services. *(Rejected alternative: a small prestige trickle — the passive amenity is more distinct.)*
 

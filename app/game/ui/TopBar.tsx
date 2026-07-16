@@ -32,8 +32,9 @@ export function TopBar() {
   const tiles = useGameStore((s) => s.map.tiles);
   const artworks = useGameStore((s) => s.artworks);
   const { housing, amenities } = useMemo(
-    () => computeCityMetrics(tiles, undefined, computeDisplaySummary(tiles, artworks).counts),
-    [tiles, artworks]
+    () =>
+      computeCityMetrics(tiles, undefined, computeDisplaySummary(tiles, artworks).counts, population),
+    [tiles, artworks, population]
   );
   const resetGame = useGameStore((s) => s.resetGame);
   const cityName = useGameStore((s) => s.cityName);

@@ -91,6 +91,7 @@ export interface BuildingMetadata {
   prestigeOnBuild?: number; // one-time prestige lump when placed (cathedral consecration)
   isHub?: boolean;
   connectionBonus?: number; // plaza-connection bonus at full strength; default PLAZA_CONNECTION_BONUS
+  footTraffic?: boolean; // the plaza bonus also scales with real traffic: citywide bustle × housing in walking reach (traffic.ts)
   placesOnRoads?: boolean; // may be placed onto plain road cells (overwriting them); conducts the plaza network
   workersRequired?: number;
   maxWorkers?: number;

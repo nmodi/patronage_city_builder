@@ -276,8 +276,10 @@ export const BUILDING_TYPES = [
   {
     // Street furniture: workerless, placeable onto road cells (placesOnRoads),
     // where it conducts plaza connectivity so it never severs a 1-wide path.
-    // Foot traffic is the whole point — connectionBonus 1.0 doubles its output
-    // beside a hub (vs the global +25%), still base rate anywhere (principle 6).
+    // Foot traffic is the whole point — footTraffic scales the plaza bonus by
+    // real traffic (bustle × housing in walking reach, traffic.ts), so
+    // connectionBonus 1.0 is a ceiling: doubled output needs a hub link, a
+    // bustling population, AND homes nearby — base rate anywhere (principle 6).
     type: "service",
     id: "market_stall",
     name: "Market Stall",
@@ -292,6 +294,7 @@ export const BUILDING_TYPES = [
     maxWorkers: 0,
     placesOnRoads: true,
     connectionBonus: 1.0,
+    footTraffic: true,
   },
   // Road variants share type "road" (sim/render key off the type); they differ
   // only in how many cells the drag tool stamps perpendicular to the stretch.

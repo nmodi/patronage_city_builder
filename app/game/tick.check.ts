@@ -86,15 +86,34 @@ const noRandomEvent = () => 1;
   assert.equal(out.florins, 128);
 }
 
-// Per-building connectionBonus: the market stall's foot-traffic coupling
-// doubles its income beside a hub (2f -> 4f), not the global +25% (-> 2.5f).
+// Foot traffic floor: with zero population the flagged stall earns exactly
+// base rate beside a hub (the old model paid the full +100% from day one).
 {
   const tiles = {
     "3,3": tile("town_center_plaza", 3, 3),
     "4,3": tile("market_stall", 4, 3), // 4-adjacent to the plaza: strength 1
   };
   const out = advanceTick(snapshot(tiles), noRandomEvent);
-  assert.equal(out.florins, 104); // 2 * (1 + 1.0*1) = 4; global bonus would give round(2.5)=103
+  assert.equal(out.florins, 102); // 2 * (1 + 1.0*1*0) — bustle(0)=0 mutes the bonus
+}
+
+// Saturated foot traffic reproduces the old ceiling: hub strength 1 × bustle 1
+// (pop 64 -> crowd curve 60 = BUSTLE_FULL) × catchment 1 (3 townhouses = 24
+// housing beside the plaza, all in the stall's walking reach) doubles 2f -> 4f.
+{
+  const tiles = {
+    "3,3": tile("town_center_plaza", 3, 3),
+    "4,3": tile("market_stall", 4, 3),
+    "3,2": tile("townhouse", 3, 2),
+    "2,3": tile("townhouse", 2, 3),
+    "3,4": tile("townhouse", 3, 4),
+  };
+  const out = advanceTick(snapshot(tiles, { population: 64 }), noRandomEvent);
+  // housing: 3 * round(8*1.25) = 30; amenities 15 + round(5*2) = 25 -> cap 25,
+  // pop 64 -> 63, occupancy 1; rent 3 * 5*1.25 = 18.75; stall 2*(1+1*1*1*1) = 4
+  // -> round(22.75) = 23
+  assert.equal(out.florins, 123);
+  assert.equal(out.population, 63);
 }
 
 // A working painter without pigment capacity remains stalled after staffing.

@@ -7,7 +7,8 @@ import { assignedMaterials, getSupply, MATERIAL_BY_ARTIST_TYPE } from "./materia
 import { computeCityMetrics } from "./metrics.ts";
 import { maybeArriveArtist, progressArtworks, type WorkshopSlot } from "./artists.ts";
 import { maybeOfferCommission, reconcileCommissions } from "./commissions.ts";
-import type { Artist, Artwork, Commission } from "./types.ts";
+import { trafficFactor } from "./traffic.ts";
+import type { Artist, Artwork, BuildingMetadata, Commission } from "./types.ts";
 import { allocateWorkers, staffingEfficiency, type StaffableBuilding } from "./workers.ts";
 
 export interface TickSnapshot {
@@ -92,13 +93,23 @@ export function advanceTick(
   }
 
   const connected = computePlazaConnectivity(updatedTiles);
-  const plazaBoost = (key: string, bonus: number) =>
-    1 + bonus * (connected.get(key) ?? 0);
+  // Start-of-month population feeds the foot-traffic factor — consistent with
+  // the computeCityMetrics call below.
+  const plazaBoost = (key: string, metadata: BuildingMetadata) =>
+    1 +
+    connectionBonusOf(metadata) *
+      (connected.get(key) ?? 0) *
+      trafficFactor(metadata, key, updatedTiles, state.population);
 
   // Displayed works: a per-tick trickle plus a per-host effectiveness boost.
   const display = computeDisplaySummary(updatedTiles, state.artworks);
 
-  const { housing, amenities } = computeCityMetrics(updatedTiles, connected, display.counts);
+  const { housing, amenities } = computeCityMetrics(
+    updatedTiles,
+    connected,
+    display.counts,
+    state.population
+  );
   const populationCap = Math.min(housing, amenities);
   const population =
     state.population + Math.sign(populationCap - state.population) * POPULATION_DRIFT_PER_MONTH;
@@ -136,7 +147,7 @@ export function advanceTick(
         metadata.workersRequired ?? 0,
         metadata.maxWorkers ?? 0,
         tile.workers
-      ) * plazaBoost(key, connectionBonusOf(metadata)) * displayBoost(display.counts.get(key) ?? 0);
+      ) * plazaBoost(key, metadata) * displayBoost(display.counts.get(key) ?? 0);
     const incomeScale = metadata.housing ? occupancy : (drByKey.get(key) ?? 1);
     florinDelta += (metadata.generates.income ?? 0) * efficiency * incomeScale;
     inspirationDelta += (metadata.generates.inspiration ?? 0) * efficiency;

@@ -40,7 +40,7 @@ export interface ConnectivityTile {
   origin: { x: number; y: number };
 }
 
-const NEIGHBORS = [
+export const NEIGHBORS = [
   [1, 0],
   [-1, 0],
   [0, 1],
@@ -51,7 +51,7 @@ const NEIGHBORS = [
 // through cell corners too. A diagonal step costs 1 like a cardinal one —
 // slightly generous vs √2, fine for a soft bonus (principle 6). Buildings
 // (the strength scan below) stay 4-neighbor: corner contact isn't adjacency.
-const NETWORK_NEIGHBORS = [
+export const NETWORK_NEIGHBORS = [
   ...NEIGHBORS,
   [1, 1],
   [1, -1],
