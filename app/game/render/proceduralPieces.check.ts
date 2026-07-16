@@ -13,11 +13,13 @@ import type { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 
 import {
   BLOCK_ENVELOPE,
+  HIP_ENVELOPE,
   PROC_FILES,
   ROOF_ENVELOPE,
-  KIT_TILE_RANGE,
+  TILE_RANGE,
   ROOF_TILE_BULGE,
   buildProceduralContainer,
+  procRoofFile,
 } from "./proceduralPieces.ts";
 
 const engine = new NullEngine();
@@ -59,29 +61,41 @@ for (const file of PROC_FILES) {
   const { min, max } = bounds(file);
   assert.ok(Math.abs(min[0] + max[0]) < EPS, `${file}: not centered on x`);
   assert.ok(Math.abs(min[2] + max[2]) < EPS, `${file}: not centered on z`);
-  if (file !== "proc:roof-gable") {
+  if (!file.startsWith("proc:roof-")) {
     assert.ok(Math.abs(min[1]) < EPS, `${file}: min.y = ${min[1]}, must be 0 (base-center origin)`);
   }
 }
+
+// Tile counts ride in the piece id so a stretched ref renders more tiles, not
+// fatter ones. Pin both the house roof (the reference every other roof matches)
+// and the rule itself — 3x the span must buy 3x the courses.
+assert.equal(procRoofFile("roof-gable", [1, 0.6, 1]), "proc:roof-gable@14x4");
+assert.equal(procRoofFile("roof-gable", [3, 0.6, 1]), "proc:roof-gable@42x4");
+assert.equal(procRoofFile("roof-gable", [1, 0.6, 3]), "proc:roof-gable@14x10");
 
 // proc:block replaces wall-block.glb, the structural unit — it must be the
 // exact cube or every stacked storey and every scaled prop drifts.
 assertEnvelope("proc:block", BLOCK_ENVELOPE);
 
-// The roof's core fills the kit envelope and its barrels stand proud of it, so
-// it must COVER the envelope and overhang by no more than a tile. Pinning it
-// both ways is what stops a silent regrowth (a roof that quietly gains height
-// lifts off the wall it sits on).
-const roof = bounds("proc:roof-gable");
-for (let i = 0; i < 3; i++) {
-  assert.ok(
-    roof.min[i] <= ROOF_ENVELOPE.min[i] + EPS && roof.min[i] >= ROOF_ENVELOPE.min[i] - ROOF_TILE_BULGE,
-    `roof min[${i}] = ${roof.min[i]}, want within ${ROOF_TILE_BULGE} under ${ROOF_ENVELOPE.min[i]}`
-  );
-  assert.ok(
-    roof.max[i] >= ROOF_ENVELOPE.max[i] - EPS && roof.max[i] <= ROOF_ENVELOPE.max[i] + ROOF_TILE_BULGE,
-    `roof max[${i}] = ${roof.max[i]}, want within ${ROOF_TILE_BULGE} over ${ROOF_ENVELOPE.max[i]}`
-  );
+// A roof's core fills the kit envelope and its barrels stand proud of it, so it
+// must COVER the envelope and overhang by no more than a tile. Pinning it both
+// ways is what stops a silent regrowth (a roof that quietly gains height lifts
+// off the wall it sits on).
+for (const [file, envelope] of [
+  ["proc:roof-gable", ROOF_ENVELOPE],
+  ["proc:roof-hip", HIP_ENVELOPE],
+] as const) {
+  const roof = bounds(file);
+  for (let i = 0; i < 3; i++) {
+    assert.ok(
+      roof.min[i]! <= envelope.min[i]! + EPS && roof.min[i]! >= envelope.min[i]! - ROOF_TILE_BULGE,
+      `${file} min[${i}] = ${roof.min[i]}, want within ${ROOF_TILE_BULGE} under ${envelope.min[i]}`
+    );
+    assert.ok(
+      roof.max[i]! >= envelope.max[i]! - EPS && roof.max[i]! <= envelope.max[i]! + ROOF_TILE_BULGE,
+      `${file} max[${i}] = ${roof.max[i]}, want within ${ROOF_TILE_BULGE} over ${envelope.max[i]}`
+    );
+  }
 }
 
 // Material names are the MATERIAL_TINTS lookup key; a rename silently drops the
@@ -89,6 +103,7 @@ for (let i = 0; i < 3; i++) {
 assert.equal(bounds("proc:block").material, "stucco");
 assert.equal(bounds("proc:gable-end").material, "stucco");
 assert.equal(bounds("proc:roof-gable").material, "tile");
+assert.equal(bounds("proc:roof-hip").material, "tile");
 
 // One mesh per piece keeps the batch key (`${file}#${i}`) stable.
 for (const file of PROC_FILES) assert.equal(bounds(file).meshCount, 1, `${file}: expected 1 mesh`);
@@ -156,17 +171,19 @@ const roofColors = bounds("proc:roof-gable").colors!;
 for (let i = 0; i < roofColors.length; i += 4) tileShades.add(Math.round(roofColors[i]! * 100));
 assert.ok(tileShades.size >= 4, `roof tiles use ${tileShades.size} shades, want variation`);
 
-// Roof tiles must stay inside the kit's measured range. The ceiling is the load
-// bearing half: this scene lights a sun-facing slope at ~1.9x, so a tile paler
-// than the kit's palest clips red and renders pale sand instead of terracotta.
-// (Bounds and shade-count checks above were all green while it did exactly that.)
+// Roof tiles must stay inside TILE_RANGE. The ceiling is the load bearing half:
+// this scene lights a sun-facing slope at ~1.9x, so a tile paler than the kit's
+// palest clips red and renders pale sand instead of terracotta. (Bounds and
+// shade-count checks above were all green while it did exactly that.) The floor
+// is taste: below it the roof reads as mud. Both test the piece's own colour —
+// ROOF_PALETTE's faded third darkens ~8% under this, which the floor allows for.
 {
   const roofMat = buildProceduralContainer("proc:roof-gable", scene).materials[0]! as PBRMaterial;
   const base = roofMat.albedoColor.toGammaSpace();
   const chans = [base.r, base.g, base.b];
   const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
-  const palest = hex(KIT_TILE_RANGE.palest);
-  const darkest = hex(KIT_TILE_RANGE.darkest);
+  const palest = hex(TILE_RANGE.palest);
+  const darkest = hex(TILE_RANGE.darkest);
   const maxShade = Math.max(...tileShades) / 100;
   let sum = 0;
   for (let i = 0; i < roofColors.length; i += 4) sum += roofColors[i]!;
@@ -174,11 +191,11 @@ assert.ok(tileShades.size >= 4, `roof tiles use ${tileShades.size} shades, want 
   for (let i = 0; i < 3; i++) {
     assert.ok(
       chans[i]! * maxShade <= palest[i]! + 0.01,
-      `roof tile ch${i} peaks at ${(chans[i]! * maxShade).toFixed(3)}, over the kit's palest tile ${palest[i]!.toFixed(3)} — it will clip to sand`
+      `roof tile ch${i} peaks at ${(chans[i]! * maxShade).toFixed(3)}, over the clip ceiling ${palest[i]!.toFixed(3)} — it will clip to sand`
     );
     assert.ok(
       chans[i]! * meanShade >= darkest[i]! - 0.02,
-      `roof tile ch${i} averages ${(chans[i]! * meanShade).toFixed(3)}, under the kit's darkest tile ${darkest[i]!.toFixed(3)}`
+      `roof tile ch${i} averages ${(chans[i]! * meanShade).toFixed(3)}, under the mud floor ${darkest[i]!.toFixed(3)}`
     );
   }
 }

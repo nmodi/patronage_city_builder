@@ -14,17 +14,22 @@ A `Part.tint` is one diffuse multiply applied to a whole part, and the Kenney ki
 2. A pink house got a brown gable, because `roof-gable` baked its gable *wall* onto the tile material.
 3. Roofs were flat-shaded polygons — terracotta coloured, not terracotta textured.
 
-The fix was not to commission art. **The pieces that needed fixing were cubes**, and a flat-colored box has no art in one — it stretches to 8× invisibly, which is what 28 of the 47 `wall-block` refs (crates, slabs, canvases, a nave) were already doing. Commissioning is still the right call for the *curved* pieces (§3).
+The fix was not to commission art. **The pieces that needed fixing were cubes**, and a flat-colored box has no art in one — it stretches to 8× invisibly, which is what 28 of the 47 `wall-block` refs (crates, slabs, canvases, a nave) were already doing. Commissioning is still the right call for the *curved* pieces (§2).
 
 ## What's built
 
-Three pieces are generated in code (`app/game/render/proceduralPieces.ts`) rather than loaded, entering through the `proc:` branch in `getContainer` so material conversion, tinting, desaturation, batching and blend stretch treat them like any kit file:
+Four pieces are generated in code (`app/game/render/proceduralPieces.ts`) rather than loaded, entering through the `proc:` branch in `getContainer` so material conversion, tinting, desaturation, batching and blend stretch treat them like any kit file:
 
 | piece | replaces | refs |
 |---|---|---|
 | `proc:block` | `wall-block.glb` (12 tris vs 76 — the quoins were the other 56) | 47 |
-| `proc:roof-gable` | `roof-gable.glb` — barrel coppi, 14 courses × 4 lapped rows + ridge cap | 11 |
-| `proc:gable-end` | *new* — the stucco triangle split out of the roof, tinted `"facade"` | 11 |
+| `proc:roof-gable` | `roof-gable.glb`, `roof-gable-end.glb`, `roof-high-gable.glb` — barrel coppi, lapped rows + ridge cap | 13 |
+| `proc:gable-end` | *new* — the stucco triangle split out of the roof, tinted `"facade"` | 13 |
+| `proc:roof-hip` | `roof-point.glb`, `roof-high-point.glb` — coppi up the fall line, cut at the hips, hip ridges over the cut | 6 |
+
+**No kit roof is left** (only the obelisk's stone cap still uses `roof-point`, and it is not a roof). That makes `TILE_BASE` the whole city's roofline in one constant — the roofs are deliberately browner and less saturated than Kenney's orange tile (hue 19 / saturation 34 vs the kit's 14 / 48), matching Florence rather than the kit. `ROOF_PALETTE` only varies it now: a ~8% cool wash on one roof in three.
+
+**Tile density follows the ref's stretch.** Counts ride in the piece id (`proc:roof-gable@51x7`, built by `procRoofFile`) so a stretched ref renders *more* tiles rather than fatter ones — a coppo is the same size on a cottage and on the cathedral's 3.6×-stretched aisle. Only the part's own scale is compensated; a `stretch: true` building still scales X/Z apart by a few percent. Manifest refs go through the `gableRoof()` / `hipRoof()` helpers, which pick the id and (for gables) pair the roof with its gable end at the same transform.
 
 They carry **vertex colours**, which multiply under the part tint exactly as the atlas texture does for kit pieces. That is load-bearing, not decoration: see kitbashing.md, "Colour: the kit's flat colours are not flat."
 
@@ -45,7 +50,7 @@ Verified by `proceduralPieces.check.ts` (in `npm test`). Its assertions encode t
 | `wall-window-shutters.glb` | 33 | ~30% of its area is quoin |
 | `wall-window-round.glb` | 24 | 18 of them are `tint: "mint"` |
 | `wall-door.glb` | 14 | 5 are `tint: "mint"` |
-| `wall-arch.glb` | 6 | all 6 `mint`; **not actually an arch** — see §3 |
+| `wall-arch.glb` | 6 | all 6 `mint`; **not actually an arch** — see §2 |
 
 **The entanglement — read this before starting.** `TEXTURE_TINTS.mint` swaps in a recoloured atlas (`scripts/make-mint-quoins.py`) so the terracotta quoin swatch reads verde di Prato green. Those 29 mint refs are *panels*, and they are now the **only** source of a religious building's green trim. Generate the panels without a replacement and the Duomo, chapel and campanile go plain white. So this pass is really two jobs:
 
@@ -58,22 +63,7 @@ Only once both land can `make-mint-quoins.py`, `colormap-mint.png`, `colormap-mi
 
 **Risk.** Low-to-medium. The quoin geometry disappears rather than being replaced, and the panel's remaining content (shutters, door, window reveal) is boxy. The green-trim half is the real design question.
 
-### 2. Remaining flat roofs
-
-Only `roof-gable` was replaced, so **houses have tile courses and nothing else does**. The cathedral shows it worst: tiled aisle roofs directly under a flat nave. 13 refs:
-
-| file | refs | where |
-|---|---|---|
-| `roof-point.glb` | 6 | palazzo, all three suppliers, obelisk |
-| `roof-gable-end.glb` | 4 | workshops, tavern |
-| `roof-high-gable.glb` | 2 | cathedral nave, chapel |
-| `roof-high-point.glb` | 1 | bell tower |
-
-Gables parameterise off the existing `buildRoofMesh` (pitch + envelope). The pyramids (`roof-point`, `roof-high-point`) need a new builder — courses converging on an apex, which is a genuinely different layout. ~70–100 lines.
-
-**Known ceiling:** tiles smear on heavily stretched refs. `COURSES` is fixed across the piece's local X, so the cathedral aisle at `[3.62, 0.4, 2.1]` gets tiles 3.6× wide. If that reads badly, encode params in the file key (`proc:roof-gable?courses=24`) — the batch key is just a string.
-
-### 3. Commission the curved pieces
+### 2. Commission the curved pieces
 
 This is where an artist actually earns the fee: curved and proportion-critical, no amount of box-stretching gets there.
 
