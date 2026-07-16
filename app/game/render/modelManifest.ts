@@ -148,13 +148,16 @@ function segmentParts(spec: SegmentSpec, mask: SegmentMask): Part[] {
 /** Shallower roof pitch: roofs squashed to 60% height, origin at the base so
  * they stay flush on the walls. */
 const ROOF_SCALE: [number, number, number] = [1, 0.6, 1];
-/** Row-house roof, pulled in on plan so it barely overhangs the footprint. The
- * walls fill the footprint (HOUSE_FIT), so a full-overhang roof pokes ~0.17wu
- * into a TALLER neighbour's wall (a cottage's roof into a townhouse — same-height
- * neighbours hide the overlap). Scaling the roof and its gable end together keeps
- * their fit, so the eave still caps the wall (bulge tiles cover the hair of wall
- * top left proud); only the projection past the footprint shrinks. */
-const HOUSE_ROOF_SCALE: [number, number, number] = [0.9, 0.6, 0.9];
+/** Row-house roof, landed so its eave/verge PLANES sit flush with the wall face
+ * (footprint edge). Per-axis, because the kit verge (0.55) overhangs more than
+ * the eave (0.535) at equal scale: 0.5/0.55 and 0.5/0.535 put both planes on the
+ * wall. The barrel tiles still bulge a hair past that — a terracotta lip that
+ * caps the wall-top edge with no gap — but the dark roof CORE no longer projects,
+ * so there's neither the inset dark line an under-scaled roof left (0.9 pulled the
+ * roof INSIDE the wall, exposing the bright wall top + dark core edge as a line
+ * all round the base) nor the ~0.17wu overhang a full 1.0 roof poked into a taller
+ * neighbour. Scaling the roof and its gable end together keeps them aligned. */
+const HOUSE_ROOF_SCALE: [number, number, number] = [0.5 / 0.55, 0.6, 0.5 / 0.535];
 /** Row houses fill their footprint to the wall plane so side-adjacent houses
  * touch (the roof is `buried`, so only the walls + window reveals drive the fit;
  * >1 to push the block face out past the reveals to the footprint edge). Tuned
