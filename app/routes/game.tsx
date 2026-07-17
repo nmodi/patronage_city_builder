@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { MetaFunction } from "react-router";
 
 import { BabylonCanvas } from "~/game/render/BabylonCanvas";
@@ -21,14 +21,14 @@ export default function GameRoute() {
   // (the menu's tour link — no longer dev-only; its storage is a no-op, so
   // it never touches the real save). Hydrating the save is the menu's job
   // (Continue), so just visiting never clobbers it.
-  const [screen, setScreen] = useState<"menu" | "game">("menu");
-
-  useEffect(() => {
-    if (!isDemo()) return;
+  // Decided synchronously (not in an effect) so ?demo never flashes the menu.
+  // seedDemoCity is idempotent, so StrictMode's double init is harmless.
+  const [screen, setScreen] = useState<"menu" | "game">(() => {
+    if (!isDemo()) return "menu";
     seedDemoCity();
     if (window.location.search.includes("pause")) useGameStore.getState().setPaused(true);
-    setScreen("game");
-  }, []);
+    return "game";
+  });
 
   if (screen === "menu") return <MainMenu onStart={() => setScreen("game")} />;
   return <GameWindow />;
