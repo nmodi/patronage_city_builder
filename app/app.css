@@ -3,17 +3,25 @@
 @theme {
   --font-sans: "EB Garamond", Georgia, "Times New Roman", serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-display: "Cinzel", "EB Garamond", serif;
+  --font-display: "Sorts Mill Goudy", "EB Garamond", serif;
 
   --color-prestige-gold: #c9932f;
   --color-crest-blue: #2f3d63;
+  --color-crest-blue-deep: #1b2340;
 
-  --color-parchment: #f7eed9;
-  --color-parchment-deep: #eee1c4;
+  --color-parchment: #f9f5ec;
+  --color-parchment-deep: #ede7da;
   --color-ink: #453824;
   --color-ink-faint: #8a7658;
   --color-wood: #b39868;
   --color-sienna: #9c3a24;
+  --color-verde: #4a6551;
+}
+
+/* Sorts Mill Goudy defaults to old-style (dropped) figures; force lining
+   figures wherever the display font is used so numerals sit on one baseline. */
+.font-display {
+  font-variant-numeric: lining-nums;
 }
 
 /* Parchment card: double border via inset hairline, faint paper grain via inline noise SVG. */
