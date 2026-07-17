@@ -123,11 +123,24 @@ assertEnvelope("proc:arch-bay", { min: [-0.12, 0, -0.5], max: [0.12, 1, 0.5] });
   assert.ok(Math.abs(leaf.max[1] - 0.74) < EPS, `door-leaf height ${leaf.max[1]}, want 0.74`);
   assert.ok(leaf.max[0] - leaf.min[0] < 0.05, `door-leaf depth ${leaf.max[0] - leaf.min[0]}, must stay under the frame's`);
 }
+// Landmark portal: opening 0.42 wide, arch springs at 0.85, voussoir ring
+// tops out at 0.85 + 0.21 + 0.07 = 1.13. The manifest's portalOn stack and
+// every placement height (cathedral rose slot, bell tower first window) is
+// tuned to these bounds.
+assertEnvelope("proc:portal-frame", { min: [-0.03, 0, -0.29], max: [0.03, 1.13, 0.29] });
+{
+  const leaf = bounds("proc:portal-leaf");
+  assert.ok(Math.abs(leaf.max[2] - leaf.min[2] - 0.41) < EPS, `portal-leaf width ${leaf.max[2] - leaf.min[2]}, want 0.41 (clearance inside the 0.42 opening)`);
+  assert.ok(Math.abs(leaf.max[1] - 0.84) < EPS, `portal-leaf height ${leaf.max[1]}, want 0.84 (rectangular doors stop at the spring; the frame's tympanum fills the lunette)`);
+  assert.ok(leaf.max[0] - leaf.min[0] < 0.05, `portal-leaf depth ${leaf.max[0] - leaf.min[0]}, must stay under the frame's`);
+}
 assert.equal(bounds("proc:surround-rect").material, "stone");
 assert.equal(bounds("proc:surround-arch").material, "stone");
 assert.equal(bounds("proc:door-frame").material, "stone");
+assert.equal(bounds("proc:portal-frame").material, "stone");
 assert.equal(bounds("proc:arch-bay").material, "stone");
 assert.equal(bounds("proc:door-leaf").material, "wood");
+assert.equal(bounds("proc:portal-leaf").material, "bronze");
 
 // One mesh per piece keeps the batch key (`${file}#${i}`) stable.
 for (const file of PROC_FILES) assert.equal(bounds(file).meshCount, 1, `${file}: expected 1 mesh`);

@@ -443,6 +443,9 @@ export const WIN_OPENING = { w: 0.18, h: 0.4 } as const;
 /** Sill course height; windowOn subtracts it to land the opening at storey+0.3. */
 export const SILL_H = 0.04;
 export const DOOR_OPENING = { w: 0.3, h: 0.75 } as const;
+/** Landmark portal: the door part of the opening; a semicircular arch of
+ * radius w/2 springs at h, so the frame's inner apex is h + w/2. */
+export const PORTAL_OPENING = { w: 0.42, h: 0.85 } as const;
 const BORDER = 0.045; // jamb/head border around a window opening
 const ARCH_BORDER = 0.055; // voussoirs run deeper than the jambs they spring from
 const ARCH_SEGS = 6;
@@ -642,6 +645,135 @@ function buildDoorLeaf(scene: Scene) {
   return { mesh, material: "wood", color: WOOD };
 }
 
+// Landmark portal (bell tower, cathedral fronts, future Town Hall) — the
+// grander door the house fittings only impersonated. Frame: chunkier jambs
+// under an 8-facet voussoir ring off impost blocks, with a stone tympanum
+// filling the lunette (so a portal needs no separate reveal part). Leaf:
+// rectangular DOUBLE doors that read as METAL — raised bronze panels (the
+// SMN/baptistery door language), not planks — stopping at the spring line.
+const PORTAL_JAMB = 0.06;
+const PORTAL_B = 0.07; // voussoir ring depth; overruns the jambs like ARCH_BORDER
+const PORTAL_T = 0.045; // frame depth — heavier than the houses' FIT_T
+const PORTAL_SEGS = 8;
+/** Aged bronze for the portal doors — grey-green patina, not the foundry
+ * tint's warm ingot. Diffuse-only like everything else (no metal sheen); the
+ * panel relief is what says "metal doors". */
+const BRONZE = "#6e6753";
+
+function buildPortalFrame(scene: Scene) {
+  const t = PORTAL_T / 2;
+  const hw = PORTAL_OPENING.w / 2;
+  const spring = PORTAL_OPENING.h;
+  const parts = [
+    shadedBox(
+      "threshold",
+      [-0.03, 0.03],
+      [0, 0.02],
+      [-(hw + PORTAL_JAMB + 0.02), hw + PORTAL_JAMB + 0.02],
+      0.85,
+      scene
+    ),
+    shadedBox("jamb-l", [-t, t], [0, spring], [-(hw + PORTAL_JAMB), -hw], 1, scene),
+    shadedBox("jamb-r", [-t, t], [0, spring], [hw, hw + PORTAL_JAMB], 1, scene),
+    // Impost blocks the arch springs from, slightly proud of the jambs.
+    shadedBox(
+      "impost-l",
+      [-t - 0.006, t + 0.006],
+      [spring - 0.04, spring],
+      [-(hw + PORTAL_JAMB + 0.015), -(hw - 0.012)],
+      0.9,
+      scene
+    ),
+    shadedBox(
+      "impost-r",
+      [-t - 0.006, t + 0.006],
+      [spring - 0.04, spring],
+      [hw - 0.012, hw + PORTAL_JAMB + 0.015],
+      0.9,
+      scene
+    ),
+  ];
+  for (let i = 0; i < PORTAL_SEGS; i++) {
+    const a0 = (Math.PI * i) / PORTAL_SEGS;
+    const a1 = (Math.PI * (i + 1)) / PORTAL_SEGS;
+    parts.push(
+      wedge(
+        `vouss-${i}`,
+        [
+          arcPt(hw, a0, spring),
+          arcPt(hw, a1, spring),
+          arcPt(hw + PORTAL_B, a1, spring),
+          arcPt(hw + PORTAL_B, a0, spring),
+        ],
+        t,
+        i % 2 ? 0.88 : 1,
+        scene
+      )
+    );
+  }
+  // Stone tympanum filling the lunette — part of the FRAME so it reads as
+  // carved stone over rectangular metal doors (bronze read as a void; matching
+  // the doors read as one arch-tall door). Radius overruns the opening by
+  // 0.015 to bury its rim inside the voussoir ring; the profile drops to
+  // 0.835 so its foot tucks behind the leaf's slab top (0.84) with no gap.
+  // Recessed inside the frame's depth: back at -0.018 clears the wall, front
+  // at -0.004 stays 0.004 behind the leaf slab's front (no coplanar faces).
+  const arc: [number, number][] = [];
+  for (let i = 0; i <= PORTAL_SEGS; i++) {
+    arc.push(arcPt(hw + 0.015, (Math.PI * i) / PORTAL_SEGS, spring));
+  }
+  arc.push([-(hw + 0.015), spring - 0.015], [hw + 0.015, spring - 0.015]);
+  parts.push(prism("tympanum", arc, -0.018, -0.004, true, 0.92, scene));
+  const mesh = Mesh.MergeMeshes(parts, true, true)!;
+  mesh.name = "proc-portal-frame";
+  return { mesh, material: "stone", color: SURROUND };
+}
+
+function buildPortalLeaf(scene: Scene) {
+  const W = PORTAL_OPENING.w - 0.01;
+  const H = PORTAL_OPENING.h - 0.01;
+  const T = 0.03;
+  // Dark base slab: shows between/around the panels as the deep framing —
+  // and its center margin doubles where the two leaves meet, the door seam.
+  const parts = [shadedBox("slab", [-T / 2, T / 2], [0, H], [-W / 2, W / 2], 0.78, scene)];
+  // One column of 3 tall panels per leaf — 2 wide x 3 tall across the pair,
+  // the classic double-door read (a finer grid stopped reading as doors).
+  const COLS = 1;
+  const ROWS_P = 3;
+  const M = 0.014; // panel margin — the seam between leaves is 2 seam-side margins
+  const lw = W / 2;
+  const pw = (lw - M * (COLS + 1)) / COLS;
+  const ph = (H - M * (ROWS_P + 1)) / ROWS_P;
+  for (const s of [-1, 1]) {
+    for (let c = 0; c < COLS; c++) {
+      for (let r = 0; r < ROWS_P; r++) {
+        const z0 = s * (M + c * (pw + M));
+        parts.push(
+          shadedBox(
+            `panel-${s}-${c}-${r}`,
+            [T / 2, T / 2 + 0.008],
+            [M + r * (ph + M), M + r * (ph + M) + ph],
+            s > 0 ? [z0, z0 + pw] : [z0 - pw, z0],
+            (c + r) % 2 ? 0.93 : 1,
+            scene
+          )
+        );
+      }
+    }
+  }
+  // The lunette above is the frame's stone tympanum — the doors stop
+  // rectangular at the spring line, like the real fronts.
+  const mesh = Mesh.MergeMeshes(parts, true, true)!;
+  mesh.name = "proc-portal-leaf";
+  // Recenter on x (the panels push the bounds forward) — every piece is
+  // x/z-centered so the manifest picks faces by rotationY alone.
+  mesh.refreshBoundingInfo();
+  mesh.bakeTransformIntoVertices(
+    Matrix.Translation(-mesh.getBoundingInfo().boundingBox.center.x, 0, 0)
+  );
+  return { mesh, material: "bronze", color: BRONZE };
+}
+
 /** One arcade bay: half a pier at each end + a fan head, 1x1 in plan face-on.
  * Rows tile by offsetting copies one unit: neighbors complete each other's
  * piers, and the fan runs out to the bay's own rim (top edge AND corners), so
@@ -713,6 +845,8 @@ const BUILDERS: Record<string, Builder> = {
   "surround-arch": buildSurroundArch,
   "door-frame": buildDoorFrame,
   "door-leaf": buildDoorLeaf,
+  "portal-frame": buildPortalFrame,
+  "portal-leaf": buildPortalLeaf,
   "arch-bay": buildArchBay,
 };
 

@@ -18,7 +18,7 @@ The fix was not to commission art. **The pieces that needed fixing were cubes**,
 
 ## What's built
 
-Nine pieces are generated in code (`app/game/render/proceduralPieces.ts`) rather than loaded, entering through the `proc:` branch in `getContainer` so material conversion, tinting, desaturation, batching and blend stretch treat them like any kit file:
+Eleven pieces are generated in code (`app/game/render/proceduralPieces.ts`) rather than loaded, entering through the `proc:` branch in `getContainer` so material conversion, tinting, desaturation, batching and blend stretch treat them like any kit file:
 
 | piece | replaces | refs |
 |---|---|---|
@@ -36,6 +36,8 @@ Nine pieces are generated in code (`app/game/render/proceduralPieces.ts`) rather
 | `proc:door-frame` | jambs + eared lintel + threshold, 0.4×0.75 opening | house fronts (`houseFront`) |
 | `proc:door-leaf` | planked wood leaf + 2 rails, 0.39×0.74 (clearance gap), its own file so it tints apart from the frame | house fronts, recessed in the frame |
 | `proc:arch-bay` | 1×1 arcade bay: half-pier each end, imposts, 8-facet fan running to the bay's own rim (solid spandrels, corners exact) so rows tile seamlessly | palazzo loggia ×5, colonnade (one per cell); the cathedral's verde blind arcade used it too until the marble pass swapped it for window rows (`wall-arch.glb`: **0 refs**) |
+| `proc:portal-frame` | landmark portal (July 2026): chunkier jambs + imposts + 8-facet voussoir ring over a 0.42×0.85 opening (apex 1.06, ring top 1.13), plus a recessed stone tympanum filling the lunette — so a portal needs **no reveal part** | cathedral west front ×3 (center 1.15×, sides 0.85×) + bell tower base (0.75×), via `portalOn()` |
+| `proc:portal-leaf` | double METAL doors, rectangular to the spring line — a column of 3 raised bronze panels per leaf (2×3 across the pair; a finer grid stopped reading as doors) on a dark slab; `bronze` material, aged grey-green #6e6753, diffuse-only | same sites, recessed in the portal frame |
 
 **No kit roof is left** (only the obelisk's stone cap still uses `roof-point`, and it is not a roof). That makes `TILE_BASE` the whole city's roofline in one constant — the roofs are deliberately browner and less saturated than Kenney's orange tile (hue 19 / saturation 34 vs the kit's 14 / 48), matching Florence rather than the kit. `ROOF_PALETTE` only varies it now: a ~8% cool wash on one roof in three.
 
@@ -56,7 +58,7 @@ Verified by `proceduralPieces.check.ts` (in `npm test`). Its assertions encode t
 - **Migrate the remaining full-face panel refs** to the same fitting pattern — 36 refs (was 53 before the marble pass took the cathedral and bell tower panel-free, July 2026): `wall-window-shutters.glb` (17), `wall-window-round.glb` (11 — needs a round/oculus surround piece or the arch surround), `wall-door.glb` (8), spread over the chapel, tavern, plazas, bakery, market stall and workshops.
 - Only after that migration can `make-mint-quoins.py`, `colormap-mint.png`, `colormap-mint-desat.png`, the `mint` entry and the remaining panel files go — and with them the last corner-quoin z-fight flicker (both fighting surfaces are panels; retiring the panels retires the fight).
 - The palazzo's top floor still wears the kit's salmon-framed `wall-window-round` panels directly above the new white stone arches — the mixed language is visible and is the natural next migration target.
-- **A grander door for landmark buildings** (July 2026, from the bell tower rebuild): the campanile reuses the house-scale `proc:door-frame`/`proc:door-leaf`, which reads modest on a five-storey marble tower. Wants a taller arched portal fitting in the same loose-fitting pattern — voussoir arch over the frame (the `surround-arch` wedge fan at door scale) + a double planked leaf — shared by the bell tower, the cathedral portals when they migrate, and the future Town Hall.
+- ~~A grander door for landmark buildings~~ **Built** (July 2026): `proc:portal-frame` + `proc:portal-leaf` (see the batch-1 table) — the leaf went bronze panels rather than the planned planks (the SMN/baptistery doors are metal), with a stone tympanum built into the frame so portals need no reveal part. On the cathedral's three west portals and the bell tower base via `portalOn()`; the future Town Hall inherits it for free.
 
 ### 2. The commission
 

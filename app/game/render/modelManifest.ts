@@ -425,6 +425,22 @@ function archWindow(
   return [reveal, surround, leaf];
 }
 
+/** Landmark portal (proc:portal-frame + proc:portal-leaf): voussoir-arched
+ * stone frame + double bronze-panel doors with a dark tympanum filling the
+ * lunette — self-contained, no reveal part. Same depth stack as the house
+ * door (leaf recessed inside the frame), scaled by `s`. */
+function portalOn(face: LocalSide, wall: number, along: number, s = 1): Part[] {
+  const sign = face === "posX" || face === "posZ" ? 1 : -1;
+  const onX = face === "posX" || face === "negX";
+  const rotationY = { posX: 0, negX: Math.PI, posZ: -Math.PI / 2, negZ: Math.PI / 2 }[face];
+  const at = (out: number): [number, number, number] =>
+    onX ? [sign * out, 0, along] : [along, 0, sign * out];
+  return [
+    { file: "proc:portal-frame", position: at(wall + 0.023 * s), scale: s, rotationY },
+    { file: "proc:portal-leaf", position: at(wall + 0.008 * s), scale: s, rotationY },
+  ];
+}
+
 // Facade columns, shared by both house tiers so upper windows land directly over
 // the door and the ground-floor window (the reference elevation). The door leaf
 // is 0.4 wide and sits off-centre; the window shares the remaining bay.
@@ -673,14 +689,12 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: "proc:block", position: [2.045, 0, 0.5], scale: [0.05, 2.5, 0.1], tint: "stone" },
       { file: "proc:block", position: [2.045, 0, -1.45], scale: [0.05, 1.75, 0.1], tint: "stone" },
       { file: "proc:block", position: [2.045, 0, 1.45], scale: [0.05, 1.75, 0.1], tint: "stone" },
-      // three-portal facade, the center one grander (scaled house fittings
-      // until the landmark portal piece lands — see procedural-pieces.md)
-      { file: "proc:door-frame", position: [CATH_FRONT + 0.018 * 1.35, 0, 0], scale: 1.35 },
-      { file: "proc:door-leaf", position: [CATH_FRONT + 0.008 * 1.35, 0, 0], scale: 1.35 },
-      { file: "proc:door-frame", position: [CATH_FRONT + 0.018, 0, -1] },
-      { file: "proc:door-leaf", position: [CATH_FRONT + 0.008, 0, -1] },
-      { file: "proc:door-frame", position: [CATH_FRONT + 0.018, 0, 1] },
-      { file: "proc:door-leaf", position: [CATH_FRONT + 0.008, 0, 1] },
+      // three-portal facade, the center one grander — arched stone portals
+      // with double bronze-panel doors (proc:portal-*). Center tops out at
+      // 1.30, under the rose slot at 1.5; sides clear the seam pilasters.
+      ...portalOn("posX", CATH_FRONT, 0, 1.15),
+      ...portalOn("posX", CATH_FRONT, -1, 0.85),
+      ...portalOn("posX", CATH_FRONT, 1, 0.85),
       // the rose slot over the portal, mirrored on the apse end (plain wall, 2)
       ...archWindow("posX", CATH_FRONT, 1.5, 0, 1.3),
       ...archWindow("negX", 2, 1.5, 0, 1.3),
@@ -949,9 +963,9 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
           tint: "campanile",
         })
       ),
-      // stone doorway at the base (wall face at BT_WALL, not the houses' 0.5)
-      { file: "proc:door-frame", position: [BT_WALL + 0.018, 0, 0] },
-      { file: "proc:door-leaf", position: [BT_WALL + 0.008, 0, 0] },
+      // arched bronze-door portal at the base (wall face at BT_WALL); 0.75
+      // keeps it ~60% of the 0.72 face and under the first window at 1.35
+      ...portalOn("posX", BT_WALL, 0, 0.75),
       // arched windows on every face, scaled up storey by storey — the belfry's
       // louvred leaf reads as the bell chamber's slats
       ...BT_FACES.flatMap((f) => [
