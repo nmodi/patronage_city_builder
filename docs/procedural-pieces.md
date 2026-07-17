@@ -18,7 +18,7 @@ The fix was not to commission art. **The pieces that needed fixing were cubes**,
 
 ## What's built
 
-Twelve pieces are generated in code (`app/game/render/proceduralPieces.ts`) rather than loaded, entering through the `proc:` branch in `getContainer` so material conversion, tinting, desaturation, batching and blend stretch treat them like any kit file:
+Eleven pieces are generated in code (`app/game/render/proceduralPieces.ts`) rather than loaded, entering through the `proc:` branch in `getContainer` so material conversion, tinting, desaturation, batching and blend stretch treat them like any kit file:
 
 | piece | replaces | refs |
 |---|---|---|
@@ -38,7 +38,8 @@ Twelve pieces are generated in code (`app/game/render/proceduralPieces.ts`) rath
 | `proc:arch-bay` | 1×1 arcade bay: half-pier each end, imposts, 8-facet fan running to the bay's own rim (solid spandrels, corners exact) so rows tile seamlessly | palazzo loggia ×5, colonnade (one per cell); the cathedral's verde blind arcade used it too until the marble pass swapped it for window rows (`wall-arch.glb`: **0 refs**) |
 | `proc:portal-frame` | landmark portal (July 2026): chunkier jambs + imposts + 8-facet voussoir ring over a 0.42×0.85 opening (apex 1.06, ring top 1.13), plus a recessed stone tympanum filling the lunette — so a portal needs **no reveal part** | cathedral west front ×3 (center 1.15×, sides 0.85×) + bell tower base (0.75×), via `portalOn()` |
 | `proc:portal-leaf` | double METAL doors, rectangular to the spring line — a column of 3 raised bronze panels per leaf (2×3 across the pair; a finer grid stopped reading as doors) on a dark slab; `bronze` material, aged grey-green #6e6753, diffuse-only | same sites, recessed in the portal frame |
-| `proc:oculus` | round window (July 2026): 12-facet circular voussoir ring + recessed dark disc plugging the opening (tympanum precedent — no reveal part). The one **center-origin** piece: it sits mid-wall like a porthole, placed by center height (`oculusOn`). `Part.tint` recolors ring and disc together — verde on the chapel is the religious trim now | palazzo top floor ×6, chapel ×5 (verde) — retired `wall-window-round.glb` (0 refs) |
+
+*(A twelfth piece — `proc:oculus`, a 12-facet round-window ring — shipped briefly in the panel-free pass and was deleted: at this art scale it read as portholes. Every former round-window site is an `archWindow` now, and the surround took an optional `tint` param so the chapel's verde trim rides its arch surrounds. In git history if a rose-window pass ever wants the ring back.)*
 
 **No kit roof is left** (only the obelisk's stone cap still uses `roof-point`, and it is not a roof). That makes `TILE_BASE` the whole city's roofline in one constant — the roofs are deliberately browner and less saturated than Kenney's orange tile (hue 19 / saturation 34 vs the kit's 14 / 48), matching Florence rather than the kit. `ROOF_PALETTE` only varies it now: a ~8% cool wash on one roof in three.
 
@@ -54,7 +55,7 @@ Verified by `proceduralPieces.check.ts` (in `npm test`). Its assertions encode t
 
 ### 1. ~~Migrate the remaining panels to loose fittings~~ DONE (July 2026)
 
-**The kit's wall panels are at 0 refs** — the panel-free pass migrated every remaining full-face ref (36: workshops, palazzo, chapel, all three suppliers, tavern, bakery) to the generated fittings. The manifest grew two general helpers: `doorOn()` (frame + leaf on any local face — `houseFront` now rides it) and `oculusOn()` (the new `proc:oculus`, which unblocked all 11 round-window refs). The chapel wears the landmark portal at parish scale (0.85×) plus **verde-tinted oculi** as its green trim; the palazzo's loggia entrance is a quiet `doorOn` (a portal there fought the arcade — arch-in-arch; portals stay landmark language). The suppliers were rebuilt bigger in the same pass (sheds 1.25–1.35 kit, yards pulled inside ±0.95 so the shed drives the fit) — they'd read cottage-annex small.
+**The kit's wall panels are at 0 refs** — the panel-free pass migrated every remaining full-face ref (36: workshops, palazzo, chapel, all three suppliers, tavern, bakery) to the generated fittings. The manifest grew a general `doorOn()` helper (frame + leaf on any local face — `houseFront` now rides it), and the 11 round-window refs became `archWindow`s (see the oculus note under the table — the generated ring didn't survive contact with the screen). The chapel wears the landmark portal at parish scale (0.85×) plus **verde-tinted arch surrounds** (4 side windows + a gable lancet) as its green trim; the palazzo's top floor runs the piano nobile's arches a size down, and its loggia entrance is a quiet `doorOn` (a portal there fought the arcade — arch-in-arch; portals stay landmark language). The suppliers were rebuilt bigger in the same pass (sheds 1.25–1.35 kit, yards pulled inside ±0.95 so the shed drives the fit) — they'd read cottage-annex small.
 
 Cleanups that landed with it: the `mint` texture tint, `make-mint-quoins.py` and `colormap-mint*.png` are **deleted** (religious green is `Part.tint: "verde"` on proc pieces now), and the corner-quoin z-fight flicker is gone with the panels. `wall-door.glb`/`wall-window-shutters.glb` stay on disk only as `make-plain-openings.py` inputs (the extracted `shutters.glb` louvre leaf is still every window's leaf); `wall-window-round.glb`, `wall-doorway-square-wide.glb`, `wall-arch.glb` are unreferenced.
 

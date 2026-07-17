@@ -350,7 +350,8 @@ function archWindow(
   wall: number,
   yOpen: number,
   along: number,
-  s = ARCH_WIN_S
+  s = ARCH_WIN_S,
+  tint?: string // surround only — the chapel's verde trim; reveal/leaf keep theirs
 ): Part[] {
   const sign = face === "posX" || face === "posZ" ? 1 : -1;
   const onX = face === "posX" || face === "negX";
@@ -374,6 +375,7 @@ function archWindow(
       ? [sign * out, yOpen - SILL_H * s, along]
       : [along, yOpen - SILL_H * s, sign * out],
     rotationY,
+    tint,
   };
   // Louvred leaf under the springline (the semicircular lunette above stays dark
   // reveal), same shutters.glb the house windows use — brown-tinted grill. Native
@@ -412,30 +414,6 @@ function doorOn(
     { file: "proc:door-frame", position: at(wall + (SURROUND_OUT - 0.5)), rotationY, scale },
     { file: "proc:door-leaf", position: at(wall + 0.008), rotationY, scale },
   ];
-}
-
-/** Round window (proc:oculus): faceted stone ring with its own recessed dark
- * disc — like the portal, no reveal part. Center-origin piece, so `y` is the
- * circle center's height. `tint` is how the chapel gets its verde trim. */
-function oculusOn(
-  face: LocalSide,
-  y: number,
-  along: number,
-  wall = 0.5,
-  s = 1,
-  tint?: string
-): Part {
-  const sign = face === "posX" || face === "posZ" ? 1 : -1;
-  const onX = face === "posX" || face === "negX";
-  const rotationY = { posX: 0, negX: Math.PI, posZ: -Math.PI / 2, negZ: Math.PI / 2 }[face];
-  const out = wall + 0.004 + 0.0175 * s; // 0.0175 = the ring's half-depth (FIT_T/2); back face kisses the wall
-  return {
-    file: "proc:oculus",
-    position: onX ? [sign * out, y, along] : [along, y, sign * out],
-    rotationY,
-    scale: s,
-    tint,
-  };
 }
 
 /** Landmark portal (proc:portal-frame + proc:portal-leaf): voussoir-arched
@@ -669,23 +647,24 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       ...archWindow("posZ", 1, 1.28, -1),
       ...archWindow("posZ", 1, 1.28, 0),
       ...archWindow("posZ", 1, 1.28, 1),
-      // top floor (main block only): stone oculi flanking the banner — the
-      // generated ring over the kit's salmon-framed panel (mixed language gone)
-      oculusOn("posZ", 2.5, -1, 1, 1.1),
-      oculusOn("posZ", 2.5, 0, 1, 1.1),
+      // top floor (main block only): smaller arched windows flanking the
+      // banner — the piano nobile's language a size down (round windows
+      // read as portholes and were dropped)
+      ...archWindow("posZ", 1, 2.35, -1, 0.9),
+      ...archWindow("posZ", 1, 2.35, 0, 0.9),
       { file: TOWN + "banner-red.glb", position: [-0.5, 2, 0.66], rotationY: -Math.PI / 2 },
       // side windows: main block −X face (above the annex) and wing +X face
       ...archWindow("negX", 1.5, 1.28, -0.5),
-      oculusOn("negX", 2.5, -0.5, 1.5, 1.1),
-      oculusOn("negX", 2.5, 0.5, 1.5, 1.1),
+      ...archWindow("negX", 1.5, 2.35, -0.5, 0.9),
+      ...archWindow("negX", 1.5, 2.35, 0.5, 0.9),
       ...archWindow("posX", 1.5, 1.28, -0.5),
       ...archWindow("posX", 1.5, 1.28, 0.5),
       // back windows
       ...archWindow("negZ", 1, 1.28, -1),
       ...archWindow("negZ", 1, 1.28, 0),
       ...archWindow("negZ", 1, 1.28, 1),
-      oculusOn("negZ", 2.5, -1, 1, 1.1),
-      oculusOn("negZ", 2.5, 0, 1, 1.1),
+      ...archWindow("negZ", 1, 2.35, -1, 0.9),
+      ...archWindow("negZ", 1, 2.35, 0, 0.9),
     ],
     fit: 0.9,
     scaleY: 0.7,
@@ -775,11 +754,11 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
     stretch: true,
   },
   // Small parish chapel, front facing +Z: single 1.5-story nave under a gable
-  // (rotated so the ridge runs along Z), stone portal + verde oculus on the
-  // facade (the oculus rides up onto the gable end like a tall church front),
-  // and a little bell lantern straddling the ridge toward the facade. The
-  // verde-tinted oculi are the chapel's green trim now that the mint panels
-  // are gone — the landmark portal language at parish scale.
+  // (rotated so the ridge runs along Z), stone portal + a small lancet riding
+  // the gable end like a tall church front, and a little bell lantern
+  // straddling the ridge toward the facade. The verde-tinted arch surrounds
+  // are the chapel's green trim now that the mint panels are gone — the
+  // landmark portal language at parish scale.
   chapel: {
     front: [0, 1],
     parts: [
@@ -792,15 +771,16 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       // taller nave; civic breaks the skyline. Gable ends flat stone (their
       // planar UVs bake the 0.6 roof squash — textured courses would jump)
       ...gableRoof([0, 1.2, 0], [2, 0.75 * HIGH_GABLE, 1.3], { rotationY: Math.PI / 2, tint: "stone" }),
-      // facade: portal ring tops at 0.96, under the wall top at 1.2; the gable
-      // end's outer face sits at z 1.03 (0.03 thick at scale 2 over the ±1 ends)
+      // facade: portal ring tops at 0.96, under the wall top at 1.2; a small
+      // verde lancet on the gable end above it (outer face at z 1.03 — 0.03
+      // thick at scale 2 over the ±1 ends), sized to clear the gable slopes
       ...portalOn("posZ", 1, 0, 0.85),
-      oculusOn("posZ", 1.35, 0, 1.03, 0.9, "verde"),
-      // side oculi (walls at x ±0.65)
-      oculusOn("posX", 0.62, -0.45, 0.65, 0.8, "verde"),
-      oculusOn("posX", 0.62, 0.45, 0.65, 0.8, "verde"),
-      oculusOn("negX", 0.62, -0.45, 0.65, 0.8, "verde"),
-      oculusOn("negX", 0.62, 0.45, 0.65, 0.8, "verde"),
+      ...archWindow("posZ", 1.03, 1.24, 0, 0.5, "verde"),
+      // arched side windows (walls at x ±0.65), verde-trimmed
+      ...archWindow("posX", 0.65, 0.4, -0.45, 0.7, "verde"),
+      ...archWindow("posX", 0.65, 0.4, 0.45, 0.7, "verde"),
+      ...archWindow("negX", 0.65, 0.4, -0.45, 0.7, "verde"),
+      ...archWindow("negX", 0.65, 0.4, 0.45, 0.7, "verde"),
       // bell lantern on the ridge, raised to straddle the taller high-gable
       // ridge (apex 2.03)
       { file: "proc:block", position: [0, 1.75, 0.35], scale: [0.32, 0.6, 0.32], tint: "stone" },
