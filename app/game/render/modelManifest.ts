@@ -431,11 +431,15 @@ function archWindow(
 const DOOR_COL = -0.2;
 const WIN_COL = 0.28;
 const SIDE_COLS = [-0.25, 0.25];
+// The house scaleY squash (~0.57) makes the unit door read garage-wide; narrow
+// it and drop the head to the window-head line. Width only via z — depth (x)
+// stays so the fittings sit proud of the wall exactly as before.
+const HOUSE_DOOR_SCALE: [number, number, number] = [1, 0.9, 0.72];
 const houseFront = (upper: number | null): Part[] => [
   // Stone doorway + planked leaf recessed in it (batch-1 fittings — the kit's
   // extracted leaf alone never quite read as a door).
-  { file: "proc:door-frame", position: [SURROUND_OUT, 0, DOOR_COL] },
-  { file: "proc:door-leaf", position: [0.508, 0, DOOR_COL] },
+  { file: "proc:door-frame", position: [SURROUND_OUT, 0, DOOR_COL], scale: HOUSE_DOOR_SCALE },
+  { file: "proc:door-leaf", position: [0.508, 0, DOOR_COL], scale: HOUSE_DOOR_SCALE },
   ...windowOn("posX", 0, WIN_COL),
   ...(upper == null
     ? []
