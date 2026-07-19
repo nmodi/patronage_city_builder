@@ -232,12 +232,11 @@ const TINT_COLORS: Record<string, string> = {
   // (cream/sand/white/ochre stucco retired with the texture pass — every
   // facade palette entry is a STONE_TINTS pattern now)
   stone: "#ddd8ca", // pale stone — trim-scale parts (pilasters, lantern, plastered gables)
-  verde: "#58634c", // verde di Prato marble — the Duomo's green banding
-  // Lighter verde for the bifora frames: tints multiply, so over the warm
-  // SURROUND stone the plain verde landed near-black; this lands sage.
-  // Blue-leaning multiplier: the warm SURROUND base it multiplies over eats
-  // the blue channel, so a neutral green here rendered yellow-olive.
-  verdeLight: "#6b878e",
+  // (verde/verdeLight fitting tints retired July 2026 — all window/door
+  // surrounds are plain stone again; verde survives only inside the wall
+  // textures. If green fittings return: tints multiply, so over the warm
+  // SURROUND stone a plain verde lands near-black and a neutral green renders
+  // yellow-olive — the working value was the blue-leaning #6b878e.)
   // The roof colour itself is TILE_BASE (proceduralPieces.ts) — every roof is a
   // generated piece now, so this only varies it: a slight cool-grey wash, ~8%
   // down, for the sun-faded third. Anything stronger and the city stops reading
@@ -352,7 +351,7 @@ function archWindow(
   yOpen: number,
   along: number,
   s = ARCH_WIN_S,
-  tint?: string // surround only — the chapel's verde trim; reveal/leaf keep theirs
+  tint?: string // surround only; reveal/leaf keep theirs
 ): Part[] {
   const sign = face === "posX" || face === "posZ" ? 1 : -1;
   const onX = face === "posX" || face === "negX";
@@ -501,8 +500,7 @@ function doorOn(
  * stone frame + double bronze-panel doors with a dark tympanum filling the
  * lunette — self-contained, no reveal part. Same depth stack as the house
  * door (leaf recessed inside the frame), scaled by `s`. `tint` recolors the
- * stone surround only (cathedral/bell tower verde trim); the bronze doors
- * keep their color. */
+ * stone surround only; the bronze doors keep their color. */
 function portalOn(face: LocalSide, wall: number, along: number, s = 1, tint?: string): Part[] {
   const sign = face === "posX" || face === "posZ" ? 1 : -1;
   const onX = face === "posX" || face === "negX";
@@ -821,16 +819,17 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       // three-portal facade, the center one grander — arched stone portals
       // with double bronze-panel doors (proc:portal-*). Center tops out at
       // 1.30, under the rose slot at 1.5; sides clear the seam pilasters.
-      ...portalOn("posX", CATH_NAVE, 0, 1.15, "verdeLight"),
-      ...portalOn("posX", CATH_FRONT, -1, 0.85, "verdeLight"),
-      ...portalOn("posX", CATH_FRONT, 1, 0.85, "verdeLight"),
+      ...portalOn("posX", CATH_NAVE, 0, 1.15),
+      ...portalOn("posX", CATH_FRONT, -1, 0.85),
+      ...portalOn("posX", CATH_FRONT, 1, 0.85),
       // the SMN rose over the center portal (replacing the paired bifore):
-      // verde stone ring + wheel glazing, centered in the nave's clear span
-      // (portal tops at 1.30, slab ends at 2.5), y pre-stretched against the
-      // prefab's 0.71 squash so the circle renders round. Aisle bifore stay.
-      ...roseWindow("posX", CATH_NAVE, 1.9, 0, 0.9, "verdeLight", 1 / 0.71),
+      // stone ring + wheel glazing, riding high in the nave's clear span
+      // (portal tops at 1.30, slab ends at 2.5 — ring top lands ~2.44), y
+      // pre-stretched against the prefab's 0.71 squash so the circle renders
+      // round. Aisle bifore stay.
+      ...roseWindow("posX", CATH_NAVE, 2, 0, 0.9, undefined, 1 / 0.71),
       ...[-1.25, -0.75, 0.75, 1.25].flatMap((z) =>
-        biforaWindow("posX", CATH_FRONT, 1.05, z, 0.78, "verdeLight")
+        biforaWindow("posX", CATH_FRONT, 1.05, z, 0.78)
       ),
       ...archWindow("negX", 2, 1.5, 0, 1.3),
       // five arched clerestory windows per side above the aisle roofs
@@ -855,9 +854,8 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
   // Small parish chapel, front facing +Z: single 1.5-story nave under a gable
   // (rotated so the ridge runs along Z), stone portal + a small lancet riding
   // the gable end like a tall church front, and a little bell lantern
-  // straddling the ridge toward the facade. The verde-tinted arch surrounds
-  // are the chapel's green trim now that the mint panels are gone — the
-  // landmark portal language at parish scale.
+  // straddling the ridge toward the facade — the landmark portal language at
+  // parish scale, all fittings plain stone.
   chapel: {
     front: [0, 1],
     parts: [
@@ -874,12 +872,12 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       // verde lancet on the gable end above it (outer face at z 1.03 — 0.03
       // thick at scale 2 over the ±1 ends), sized to clear the gable slopes
       ...portalOn("posZ", 1, 0, 0.85),
-      ...archWindow("posZ", 1.03, 1.24, 0, 0.5, "verde"),
-      // arched side windows (walls at x ±0.65), verde-trimmed
-      ...archWindow("posX", 0.65, 0.4, -0.45, 0.7, "verde"),
-      ...archWindow("posX", 0.65, 0.4, 0.45, 0.7, "verde"),
-      ...archWindow("negX", 0.65, 0.4, -0.45, 0.7, "verde"),
-      ...archWindow("negX", 0.65, 0.4, 0.45, 0.7, "verde"),
+      ...archWindow("posZ", 1.03, 1.24, 0, 0.5),
+      // arched side windows (walls at x ±0.65)
+      ...archWindow("posX", 0.65, 0.4, -0.45, 0.7),
+      ...archWindow("posX", 0.65, 0.4, 0.45, 0.7),
+      ...archWindow("negX", 0.65, 0.4, -0.45, 0.7),
+      ...archWindow("negX", 0.65, 0.4, 0.45, 0.7),
       // bell lantern on the ridge, raised to straddle the taller high-gable
       // ridge (apex 2.03)
       { file: "proc:block", position: [0, 1.75, 0.35], scale: [0.32, 0.6, 0.32], tint: "stone" },
@@ -1125,12 +1123,11 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       { file: "proc:block@1x5", position: [0, 0, 0], scale: [BT_W, 1, BT_W], tint: "campanile" },
       // arched bronze-door portal at the base (wall face at BT_WALL); 0.75
       // keeps it ~60% of the 0.72 face and under the first window at 1.35
-      ...portalOn("posX", BT_WALL, 0, 0.75, "verdeLight"),
+      ...portalOn("posX", BT_WALL, 0, 0.75),
       // bifore (twin lights under one arch) on every face, one per storey at
-      // a uniform size — just under half the 0.72 face; verde frames, the
-      // campanile's green-on-white marble language
+      // a uniform size — just under half the 0.72 face
       ...BT_FACES.flatMap((f) =>
-        [1.35, 2.32, 3.28, 4.18].flatMap((y) => biforaWindow(f, BT_WALL, y, 0, 0.95, "verdeLight"))
+        [1.35, 2.32, 3.28, 4.18].flatMap((y) => biforaWindow(f, BT_WALL, y, 0, 0.95))
       ),
       // projecting crown (Giotto's gallery, minus the balustrade) + shallow cap
       { file: "proc:block", position: [0, 4.97, 0], scale: [BT_W + 0.16, 0.13, BT_W + 0.16], tint: "stone" },
