@@ -56,12 +56,16 @@ function assertEnvelope(file: string, want: { min: readonly number[]; max: reado
 }
 
 // Every piece centers on x/z — that is what lets the manifest pick a face by
-// rotationY. Only the roof leaves its base, and only by a tile lap (below).
+// rotationY. Only the roof leaves its base, and only by a tile lap (below);
+// the circular rose pieces center on y too (they scale about the circle
+// centre so roseWindow's y-stretch keeps them round).
 for (const file of PROC_FILES) {
   const { min, max } = bounds(file);
   assert.ok(Math.abs(min[0] + max[0]) < EPS, `${file}: not centered on x`);
   assert.ok(Math.abs(min[2] + max[2]) < EPS, `${file}: not centered on z`);
-  if (!file.startsWith("proc:roof-")) {
+  if (file.startsWith("proc:rose")) {
+    assert.ok(Math.abs(min[1] + max[1]) < EPS, `${file}: not centered on y (circle-center origin)`);
+  } else if (!file.startsWith("proc:roof-")) {
     assert.ok(Math.abs(min[1]) < EPS, `${file}: min.y = ${min[1]}, must be 0 (base-center origin)`);
   }
 }
@@ -117,6 +121,14 @@ assertEnvelope("proc:bifora", { min: [-0.011, 0, -0.175], max: [0.011, 0.555, 0.
 // Glazed leaf: a hair inside the 0.13x0.34 opening (clearance = its gap), thin
 // enough that the depth stack (reveal front → leaf → frame front) holds.
 assertEnvelope("proc:shutter", { min: [-0.0035, 0, -0.06], max: [0.0035, 0.33, 0.06] });
+// Arched leaf: same width/depth contract as the shutter; the wood ring's apex
+// vertex tops out at spring 0.335 + lunette radius 0.06.
+assertEnvelope("proc:arch-leaf", { min: [-0.0035, 0, -0.06], max: [0.0035, 0.395, 0.06] });
+// Rose: the CENTERED pieces (position = circle centre, not base) — ring
+// radius 0.35, glass rim 0.30 tucked under the band. roseWindow's depth
+// stack and the cathedral slot ride these.
+assertEnvelope("proc:rose", { min: [-0.01, -0.35, -0.35], max: [0.01, 0.35, 0.35] });
+assertEnvelope("proc:rose-glass", { min: [-0.0035, -0.3, -0.3], max: [0.0035, 0.3, 0.3] });
 assertEnvelope("proc:door-frame", { min: [-0.016, 0, -0.22], max: [0.016, 0.81, 0.22] });
 // Arch bay: exactly 1x1 face-on with piers at the z edges — the tiling
 // contract (copies offset by one unit share a full pier and meet at the rim).
@@ -149,6 +161,9 @@ assert.equal(bounds("proc:arch-bay").material, "stone");
 assert.equal(bounds("proc:door-leaf").material, "wood");
 assert.equal(bounds("proc:portal-leaf").material, "bronze");
 assert.equal(bounds("proc:shutter").material, "glazing");
+assert.equal(bounds("proc:arch-leaf").material, "glazing");
+assert.equal(bounds("proc:rose").material, "stone");
+assert.equal(bounds("proc:rose-glass").material, "glazing");
 
 // One mesh per piece keeps the batch key (`${file}#${i}`) stable.
 for (const file of PROC_FILES) assert.equal(bounds(file).meshCount, 1, `${file}: expected 1 mesh`);

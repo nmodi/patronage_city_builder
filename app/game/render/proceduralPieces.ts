@@ -155,7 +155,7 @@ function meshFrom(
   name: string,
   positions: number[],
   indices: number[],
-  shade: number,
+  shade: number | Color4, // a full colour rides one white material, like shadedBox
   scene: Scene
 ): Mesh {
   const normals: number[] = [];
@@ -167,9 +167,9 @@ function meshFrom(
   // Unused (these materials carry no texture) but MergeMeshes requires every
   // source to declare the same attributes, and MeshBuilder primitives have UVs.
   data.uvs = new Array((2 * positions.length) / 3).fill(0);
-  data.colors = Array.from({ length: (4 * positions.length) / 3 }, (_, i) =>
-    i % 4 === 3 ? 1 : shade
-  );
+  const c = typeof shade === "number" ? new Color4(shade, shade, shade, 1) : shade;
+  const ch = [c.r, c.g, c.b, c.a];
+  data.colors = Array.from({ length: (4 * positions.length) / 3 }, (_, i) => ch[i % 4]!);
   const mesh = new Mesh(name, scene);
   data.applyToMesh(mesh);
   return mesh;
@@ -488,7 +488,7 @@ function wedge(
   name: string,
   quad: [number, number][], // 4 [z, y] corners: inner0, inner1, outer1, outer0
   t: number,
-  shade: number,
+  shade: number | Color4,
   scene: Scene
 ) {
   const positions: number[] = [];
@@ -803,6 +803,219 @@ function buildShutter(scene: Scene) {
   return { mesh, material: "glazing", color: "#ffffff" };
 }
 
+/** Arched glazed leaf (proc:arch-leaf) — archWindow's glazing, filling the
+ * WHOLE arch to the lunette apex (the leaded-light reference): small diamond
+ * panes on ±45° lattice bars behind a heavier centre mullion + transoms, the
+ * casement head a wood ring following the glass arc. Same contract as
+ * proc:shutter: authored to WIN_OPENING minus clearance, base y=0, depth
+ * SHUTTER_T, glass in the back slab with woodwork proud. */
+const LATTICE_W = 0.006; // diagonal bar width — finer than the heavy members
+const LATTICE_PITCH = 0.04; // diamond size (both axes; 45° lattice) — kept chunky to match the kit's detail level
+
+function buildArchLeaf(scene: Scene) {
+  const A = (WIN_OPENING.w - 0.01) / 2; // glass half-width = lunette radius
+  const S = WIN_OPENING.h - 0.005; // springline (the leaf sits 0.005 up the opening)
+  const T = SHUTTER_T;
+  const xMid = -T / 2 + 0.0025; // glass back slab / woodwork front, as the shutter
+  const tintC = (c: Color3, s: number) => new Color4(c.r * s, c.g * s, c.b * s, 1);
+  const parts: Mesh[] = [];
+  // Glass: the shutter's 2x3 sparkle fields below the spring + a lunette fan
+  // above (tiny inner radius instead of a degenerate apex — the spring rail
+  // covers the hole; ComputeNormals chokes on zero-area facets).
+  for (let row = 0; row < 3; row++)
+    for (let col = 0; col < 2; col++)
+      parts.push(
+        shadedBox(
+          `pane-${row}${col}`,
+          [-T / 2, xMid],
+          [(row * S) / 3, ((row + 1) * S) / 3],
+          [(col - 1) * A, col * A],
+          tintC(GLASS, PANE_SHADES[row * 2 + col]!),
+          scene
+        )
+      );
+  const fan = (name: string, r0: number, r1: number, i: number, t: number, shade: Color4) => {
+    const a0 = (Math.PI * i) / 8;
+    const a1 = (Math.PI * (i + 1)) / 8;
+    return wedge(
+      name,
+      [arcPt(r0, a0, S), arcPt(r0, a1, S), arcPt(r1, a1, S), arcPt(r1, a0, S)],
+      t,
+      shade,
+      scene
+    );
+  };
+  for (let i = 0; i < 8; i++) {
+    const g = fan(`lun-${i}`, 0.004, A, i, (xMid + T / 2) / 2, tintC(GLASS, 0.95));
+    g.bakeTransformIntoVertices(Matrix.Translation((-T / 2 + xMid) / 2, 0, 0));
+    parts.push(g);
+  }
+  // Diamond lattice: ±45° leaded bars clipped to the arch outline (sampled —
+  // rect under half-disc, convex, so the inside span is one interval). Clip
+  // margin keeps bar corners inside the leaf envelope; tips tuck under the
+  // stiles/rails/ring, and bars recess a hair behind the heavy members so
+  // crossings never z-fight (bar-on-bar crossings are same-colour, invisible).
+  const m = 0.002;
+  const rIn = A - m;
+  const inside = (z: number, y: number) =>
+    Math.abs(z) <= rIn && y >= m && (y <= S || z * z + (y - S) * (y - S) <= rIn * rIn);
+  const bt = (T / 2 - 0.0015 - xMid) / 2; // bar half-depth
+  const bx = (T / 2 - 0.0015 + xMid) / 2; // bar depth centre
+  for (const sg of [1, -1]) {
+    for (let k = -3; k * LATTICE_PITCH < S + 2 * A; k++) {
+      const c = k * LATTICE_PITCH; // line y = sg*z + c
+      let z0 = Infinity;
+      let z1 = -Infinity;
+      for (let i = 0; i <= 160; i++) {
+        const z = -A + (2 * A * i) / 160;
+        if (inside(z, sg * z + c)) {
+          z0 = Math.min(z0, z);
+          z1 = Math.max(z1, z);
+        }
+      }
+      if (z1 - z0 < LATTICE_PITCH / 2) continue; // sliver at an edge — skip
+      // Bar rectangle as a wedge quad (n = half-width normal, oriented to
+      // match the voussoirs' winding so the extruded faces point outward).
+      const n = { z: LATTICE_W / (2 * Math.SQRT2), y: (-sg * LATTICE_W) / (2 * Math.SQRT2) };
+      const p = (z: number, d: number): [number, number] => [z + d * n.z, sg * z + c + d * n.y];
+      const bar = wedge(
+        `lat-${sg}-${k}`,
+        [p(z0, -1), p(z1, -1), p(z1, 1), p(z0, 1)],
+        bt,
+        tintC(MUNTIN, 0.9),
+        scene
+      );
+      bar.bakeTransformIntoVertices(Matrix.Translation(bx, 0, 0));
+      parts.push(bar);
+    }
+  }
+  // Heavy members over the lattice: casement stiles, bottom rail, centre
+  // mullion, two transoms, a rail at the springline (the reference's bar where
+  // the arch begins), and the wood ring carrying the casement round the arc.
+  const wood = (name: string, y: readonly [number, number], z: readonly [number, number], s = 1) =>
+    parts.push(shadedBox(name, [xMid, T / 2], y, z, tintC(MUNTIN, s), scene));
+  wood("stile-l", [0, S], [-A, -A + 0.01], 0.96);
+  wood("stile-r", [0, S], [A - 0.01, A], 0.96);
+  wood("rail-b", [0, 0.012], [-A, A]);
+  wood("rail-spring", [S - 0.008, S], [-A, A]);
+  wood("mullion", [0, S], [-0.004, 0.004]);
+  wood("transom-1", [S / 3 - 0.004, S / 3 + 0.004], [-A, A]);
+  wood("transom-2", [(2 * S) / 3 - 0.004, (2 * S) / 3 + 0.004], [-A, A]);
+  for (let i = 0; i < 8; i++) {
+    const r = fan(`ring-${i}`, A - 0.008, A, i, (T / 2 - xMid) / 2, tintC(MUNTIN, 0.96));
+    r.bakeTransformIntoVertices(Matrix.Translation((xMid + T / 2) / 2, 0, 0));
+    parts.push(r);
+  }
+  const mesh = Mesh.MergeMeshes(parts, true, true)!;
+  mesh.name = "proc-arch-leaf";
+  return { mesh, material: "glazing", color: "#ffffff" };
+}
+
+/** Rose window (proc:rose ring + proc:rose-glass glazing) — the cathedral
+ * west-front circle (Santa Maria Novella reference): a faceted stone annulus
+ * with alternating voussoir shades and a recessed darker inner step, over a
+ * glass disc carrying wheel tracery — 12 spokes off a hub through two
+ * concentric rings (the wheel refs). Both pieces are authored CENTERED on the
+ * circle (position = rose centre), unlike the base-at-0 fittings — circular
+ * pieces must scale about their centre for the manifest's y-stretch (the
+ * cathedral prefab's scaleY squash compensation) to keep them round. */
+export const ROSE_R = 0.35; // outer ring radius
+const ROSE_BAND = 0.055; // ring band width
+export const ROSE_T = 0.02; // ring depth — heavier than WIN_T, landmark language
+const ROSE_SEGS = 16;
+const ROSE_SPOKES = 12;
+
+function buildRose(scene: Scene) {
+  const Ri = ROSE_R - ROSE_BAND;
+  const parts: Mesh[] = [];
+  for (let i = 0; i < ROSE_SEGS; i++) {
+    const a0 = (2 * Math.PI * i) / ROSE_SEGS;
+    const a1 = (2 * Math.PI * (i + 1)) / ROSE_SEGS;
+    const ring = (name: string, r0: number, r1: number, t: number, shade: number) =>
+      parts.push(
+        wedge(
+          name,
+          [arcPt(r0, a0, 0), arcPt(r0, a1, 0), arcPt(r1, a1, 0), arcPt(r1, a0, 0)],
+          t,
+          shade,
+          scene
+        )
+      );
+    ring(`band-${i}`, Ri, ROSE_R, ROSE_T / 2, i % 2 ? 0.88 : 1); // voussoir joints
+    // Inner step: thinner and darker, so the ring reads as two mouldings.
+    ring(`step-${i}`, Ri - 0.014, Ri, ROSE_T / 2 - 0.004, 0.8);
+  }
+  const mesh = Mesh.MergeMeshes(parts, true, true)!;
+  mesh.name = "proc-rose";
+  return { mesh, material: "stone", color: SURROUND };
+}
+
+function buildRoseGlass(scene: Scene) {
+  const Rg = ROSE_R - ROSE_BAND + 0.005; // rim tucks under the ring band
+  const T = SHUTTER_T;
+  const xMid = -T / 2 + 0.0025; // glass back slab / tracery proud, as the leaves
+  const tintC = (c: Color3, s: number) => new Color4(c.r * s, c.g * s, c.b * s, 1);
+  const parts: Mesh[] = [];
+  const fan = (
+    name: string,
+    r0: number,
+    r1: number,
+    i: number,
+    n: number,
+    t: number,
+    dx: number,
+    shade: Color4
+  ) => {
+    const a0 = (2 * Math.PI * i) / n;
+    const a1 = (2 * Math.PI * (i + 1)) / n;
+    const w = wedge(
+      name,
+      [arcPt(r0, a0, 0), arcPt(r0, a1, 0), arcPt(r1, a1, 0), arcPt(r1, a0, 0)],
+      t,
+      shade,
+      scene
+    );
+    w.bakeTransformIntoVertices(Matrix.Translation(dx, 0, 0));
+    parts.push(w);
+  };
+  const gT = (xMid + T / 2) / 2; // glass slab half-depth
+  const gX = (-T / 2 + xMid) / 2; // glass slab centre
+  const wT = (T / 2 - xMid) / 2; // tracery half-depth
+  const wX = (xMid + T / 2) / 2; // tracery centre
+  // Glass disc: per-sector brightness sparkle, muted to 40% of the casement
+  // range — full PANE_SHADES contrast across 16 narrow sectors read as a
+  // pinwheel. (A pinhole at the centre hides behind the hub; ComputeNormals
+  // chokes on zero-area facets.)
+  for (let i = 0; i < ROSE_SEGS; i++)
+    fan(`glass-${i}`, 0.004, Rg, i, ROSE_SEGS, gT, gX,
+      tintC(GLASS, 1 - (1 - PANE_SHADES[i % 6]!) * 0.4));
+  // Wheel tracery: hub, two concentric rings, radial spokes (tips bury under
+  // the stone ring's inner step; roots under the hub).
+  for (let i = 0; i < ROSE_SEGS; i++) {
+    fan(`hub-${i}`, 0.004, 0.034, i, ROSE_SEGS, wT, wX, tintC(MUNTIN, 0.96));
+    for (const r of [0.12, 0.21])
+      fan(`ring-${r}-${i}`, r - 0.0035, r + 0.0035, i, ROSE_SEGS, wT, wX, tintC(MUNTIN, 1));
+  }
+  for (let k = 0; k < ROSE_SPOKES; k++) {
+    const a = (2 * Math.PI * k) / ROSE_SPOKES;
+    const u = { z: Math.cos(a), y: Math.sin(a) }; // radial direction
+    const n = { z: (0.007 / 2) * u.y, y: (-0.007 / 2) * u.z }; // CW-winding normal
+    const p = (r: number, d: number): [number, number] => [r * u.z + d * n.z, r * u.y + d * n.y];
+    const spoke = wedge(
+      `spoke-${k}`,
+      [p(0.02, -1), p(0.288, -1), p(0.288, 1), p(0.02, 1)],
+      wT,
+      tintC(MUNTIN, 0.93),
+      scene
+    );
+    spoke.bakeTransformIntoVertices(Matrix.Translation(wX, 0, 0));
+    parts.push(spoke);
+  }
+  const mesh = Mesh.MergeMeshes(parts, true, true)!;
+  mesh.name = "proc-rose-glass";
+  return { mesh, material: "glazing", color: "#ffffff" };
+}
+
 // Landmark portal (bell tower, cathedral fronts, future Town Hall) — the
 // grander door the house fittings only impersonated. Frame: chunkier jambs
 // under an 8-facet voussoir ring off impost blocks, with a stone tympanum
@@ -1003,6 +1216,9 @@ const BUILDERS: Record<string, Builder> = {
   "surround-arch": buildSurroundArch,
   bifora: buildBifora,
   shutter: buildShutter,
+  "arch-leaf": buildArchLeaf,
+  rose: buildRose,
+  "rose-glass": buildRoseGlass,
   "door-frame": buildDoorFrame,
   "door-leaf": buildDoorLeaf,
   "portal-frame": buildPortalFrame,

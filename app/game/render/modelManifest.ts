@@ -1,6 +1,6 @@
 import type { BuildingId } from "~/game/buildings";
 
-import { BIF_OPENING, DOOR_T, SHUTTER_T, SILL_H, WIN_OPENING, WIN_SILL_T, WIN_T, procRoofFile } from "./proceduralPieces";
+import { BIF_OPENING, DOOR_T, ROSE_T, SHUTTER_T, SILL_H, WIN_OPENING, WIN_SILL_T, WIN_T, procRoofFile } from "./proceduralPieces";
 
 /** Local horizontal face of a composed prefab, pre-rotation. */
 export type LocalSide = "posX" | "negX" | "posZ" | "negZ";
@@ -379,13 +379,14 @@ function archWindow(
     rotationY,
     tint,
   };
-  // Louvred leaf under the springline (the semicircular lunette above stays
-  // dark reveal), the same proc:shutter the house windows use, at the
-  // surround's own scale. Its back rides the UNSCALED reveal-front line
+  // Glazed leaf filling the WHOLE arch — proc:arch-leaf's diamond leaded
+  // lattice runs to the lunette apex (the palazzo reference), replacing the
+  // rect casement that left the lunette dark reveal. Same authored contract
+  // as proc:shutter; its back rides the UNSCALED reveal-front line
   // (REVEAL_T doesn't scale with s), so small-s lancets don't sink behind it.
   const leafOut = wall + SHUTTER_BACK + (SHUTTER_T / 2) * s;
   const leaf: Part = {
-    file: "proc:shutter",
+    file: "proc:arch-leaf",
     scale: s,
     position: onX
       ? [sign * leafOut, yOpen + 0.005 * s, along]
@@ -433,6 +434,44 @@ function biforaWindow(
   };
   // No glazed leaves — the lights stay dark reveal, the campanile's open voids.
   return [reveal, frame];
+}
+
+/** Rose window on a local face — faceted stone ring + wheel-tracery glazing
+ * (proc:rose / proc:rose-glass), both CENTERED pieces: `yCenter` is the rose
+ * centre, not an opening bottom. `sy` pre-stretches y so the circle renders
+ * round under a prefab's scaleY squash (the cathedral passes 1/0.71 — with
+ * stretch fitting, scaleY = min(scaleX, scaleZ) × 0.71 exactly, so the
+ * compensation is the plain reciprocal). No reveal: the glass disc runs to
+ * under the ring band, so there's no opening edge to hide. */
+function roseWindow(
+  face: LocalSide,
+  wall: number,
+  yCenter: number,
+  along: number,
+  s = 1,
+  tint?: string, // ring only — the glass keeps its own colours
+  sy = 1
+): Part[] {
+  const sign = face === "posX" || face === "posZ" ? 1 : -1;
+  const onX = face === "posX" || face === "negX";
+  const rotationY = { posX: 0, negX: Math.PI, posZ: -Math.PI / 2, negZ: Math.PI / 2 }[face];
+  const ringOut = wall + 0.0005 + (ROSE_T / 2) * s; // ring back kisses the wall
+  const glassOut = wall + SHUTTER_BACK + (SHUTTER_T / 2) * s;
+  const scale: [number, number, number] = [s, s * sy, s];
+  const glass: Part = {
+    file: "proc:rose-glass",
+    scale,
+    position: onX ? [sign * glassOut, yCenter, along] : [along, yCenter, sign * glassOut],
+    rotationY,
+  };
+  const ring: Part = {
+    file: "proc:rose",
+    scale,
+    position: onX ? [sign * ringOut, yCenter, along] : [along, yCenter, sign * ringOut],
+    rotationY,
+    tint,
+  };
+  return [glass, ring];
 }
 
 /** Stone doorway + planked leaf on any local face (the batch-1 door fittings,
@@ -781,11 +820,11 @@ export const MODEL_MANIFEST: Partial<Record<BuildingId, ModelDef>> = {
       ...portalOn("posX", CATH_NAVE, 0, 1.15, "verdeLight"),
       ...portalOn("posX", CATH_FRONT, -1, 0.85, "verdeLight"),
       ...portalOn("posX", CATH_FRONT, 1, 0.85, "verdeLight"),
-      // paired verde bifore over the center portal (replacing the single
-      // arched slot) + two high on each aisle front; sizes run the sections'
-      // clear spans between the pilasters. The apse end keeps its arch.
-      ...biforaWindow("posX", CATH_NAVE, 1.5, -0.25, 1, "verdeLight"),
-      ...biforaWindow("posX", CATH_NAVE, 1.5, 0.25, 1, "verdeLight"),
+      // the SMN rose over the center portal (replacing the paired bifore):
+      // verde stone ring + wheel glazing, centered in the nave's clear span
+      // (portal tops at 1.30, slab ends at 2.5), y pre-stretched against the
+      // prefab's 0.71 squash so the circle renders round. Aisle bifore stay.
+      ...roseWindow("posX", CATH_NAVE, 1.9, 0, 0.9, "verdeLight", 1 / 0.71),
       ...[-1.25, -0.75, 0.75, 1.25].flatMap((z) =>
         biforaWindow("posX", CATH_FRONT, 1.05, z, 0.78, "verdeLight")
       ),
